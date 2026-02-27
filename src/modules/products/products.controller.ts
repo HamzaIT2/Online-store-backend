@@ -186,6 +186,8 @@ create(
     @Body() updateProductDto: UpdateProductDto,
     @CurrentUser() user: User,
   ) {
+    console.log('Update Data Received:', updateProductDto);
+    console.log('User:', user);
     return this.productsService.update(id, updateProductDto, user);
   }
 

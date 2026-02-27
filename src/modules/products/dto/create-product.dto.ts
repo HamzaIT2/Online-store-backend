@@ -1,7 +1,8 @@
-import { IsString, IsNumber, IsOptional, IsEnum, IsBoolean, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsBoolean, Min, IsDateString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 export class CreateProductDto {
- @ApiProperty({ example: 'iPhone 13 Pro' })
+  @ApiProperty({ example: 'iPhone 13 Pro' })
   @IsString()
   title: string;
 
@@ -27,7 +28,18 @@ export class CreateProductDto {
   cityId: number;
   @IsString()
   @IsOptional()
-  address?:string;
+  address?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  oldPrice?: number;
+
+
+  @IsOptional()
+  @IsDateString() 
+  offerExpiresAt?: Date;
 
   @ApiProperty({ required: false, enum: ['new', 'like_new', 'good', 'fair', 'poor'], example: 'like_new' })
   @IsOptional()

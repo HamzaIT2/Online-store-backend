@@ -62,6 +62,11 @@ export class Product {
   @Column({ type: 'timestamp', nullable: true })
   vipExpiryDate: Date;
 
+  @Column({name:'old_price',type:'decimal' , precision:10 , scale:0,nullable:true})
+  oldPrice: number;
+  @Column({ name:'offer_expires_at', type: 'timestamp', nullable: true })
+  offerExpiresAt: Date;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
