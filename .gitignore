@@ -34,3 +34,5 @@ coverage/
 temp/
 
 /uploads
+
+/ERD.svg
