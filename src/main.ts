@@ -18,9 +18,11 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: ['http://localhost:5173', 'https://aldawaarr.vercel.app','http://localhost:3000'],
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With','Cache-Control','X-HTTP-Method-Override','X-CSRF-Token', ],
+    origin: true
+    // origin: ['http://localhost:5173','http://127.0.0.1:3000'
+    //   ,'http://127.0.0.1:65036', 'https://aldawaarr.vercel.app','http://localhost:3000','http://localhost:65036','http://127.0.0.1:60808',],
+   , methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With','Cache-Control','X-HTTP-Method-Override','X-CSRF-Token'],
     credentials: true,
     
   });

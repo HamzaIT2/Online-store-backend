@@ -3,7 +3,19 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class ChatsService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaClient) { }
+
+  async findChat(buyerId: number, sellerId: number, productId: number) {
+    const existing = await this.prisma.conversations.findFirst({
+      where: {
+        buyer_id: buyerId,
+        seller_id: sellerId,
+        product_id: productId,
+      },
+      select: { conversation_id: true },
+    });
+    return existing?.conversation_id;
+  }
 
   async createOrGetChat(buyerId: number, sellerId: number, productId?: number) {
     const existing = await this.prisma.conversations.findFirst({

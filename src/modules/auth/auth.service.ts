@@ -137,10 +137,10 @@ export class AuthService {
     const user = await this.userRepository.findOne({ where: { email } });
 
     if (!user) throw new BadRequestException('المستخدم غير موجود');
-    
+
     if (user.isVerified) {
-        // يمكننا إرجاع رسالة نجاح عادية بدلاً من خطأ إذا كان المستخدم يحاول تفعيل حساب مفعل أصلاً
-        return { message: 'الحساب مفعل بالفعل، يمكنك تسجيل الدخول الآن.' };
+      // يمكننا إرجاع رسالة نجاح عادية بدلاً من خطأ إذا كان المستخدم يحاول تفعيل حساب مفعل أصلاً
+      return { message: 'الحساب مفعل بالفعل، يمكنك تسجيل الدخول الآن.' };
     }
 
     // التحقق من الوقت
@@ -223,7 +223,7 @@ export class AuthService {
 
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = resetToken;
-    user.resetPasswordExpiry = new Date(Date.now() + 3600 * 1000); 
+    user.resetPasswordExpiry = new Date(Date.now() + 3600 * 1000);
     await this.userRepository.save(user);
 
     const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;

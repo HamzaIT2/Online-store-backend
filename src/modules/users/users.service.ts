@@ -3,13 +3,23 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UserStatsDto } from './dto/user-stats.dto';
+import { Product } from '../products/entities/product.entity';
+import { Transaction } from '../transactions/entities/transaction.entity';
+import { Favorite } from '../favorites/entities/favorite.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) {}
+    @InjectRepository(Product)
+    private productRepository: Repository<Product>,
+    @InjectRepository(Transaction)
+    private transactionRepository: Repository<Transaction>,
+    @InjectRepository(Favorite)
+    private favoriteRepository: Repository<Favorite>,
+  ) { }
 
   async findAll(page: number = 1, limit: number = 20) {
     const [users, total] = await this.userRepository.findAndCount({
@@ -46,7 +56,7 @@ export class UsersService {
   async findOne(id: number) {
     const user = await this.userRepository.findOne({
       where: { userId: id, isActive: true },
-      relations: ['province', 'city', 'products'],
+      relations: ['province', 'city'],
       select: {
         userId: true,
         username: true,
@@ -75,7 +85,7 @@ export class UsersService {
   async findByUsername(username: string) {
     const user = await this.userRepository.findOne({
       where: { username, isActive: true },
-      relations: ['province', 'city', 'products'],
+      relations: ['province', 'city'],
       select: {
         userId: true,
         username: true,
@@ -119,10 +129,16 @@ export class UsersService {
         isActive: true,
         ratingAverage: true,
         totalSales: true,
+        role: true,
+        userType: true,
         createdAt: true,
         updatedAt: true,
-        // Exclude only password
+        // Exclude sensitive fields
         passwordHash: false,
+        resetPasswordToken: false,
+        resetPasswordExpiry: false,
+        verificationCode: false,
+        verificationCodeExpiry: false,
       },
     });
 
@@ -150,9 +166,7 @@ export class UsersService {
     Object.assign(user, updateUserDto);
     await this.userRepository.save(user);
 
-    // Return updated user without sensitive data
-    delete user.passwordHash;
-    return user;
+    return this.getProfile(id);
   }
 
   async deactivate(id: number, currentUser: User) {
@@ -173,5 +187,51 @@ export class UsersService {
     await this.userRepository.save(user);
 
     return { message: 'Account deactivated successfully' };
+  }
+
+  async getUserStats(userId: number): Promise<UserStatsDto> {
+    // Verify user exists
+    const user = await this.userRepository.findOne({
+      where: { userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Get total sales from completed transactions where user is seller
+    const totalSalesResult = await this.transactionRepository
+      .createQueryBuilder('transaction')
+      .select('SUM(transaction.price)', 'total')
+      .where('transaction.sellerId = :userId', { userId })
+      .andWhere('transaction.status = :status', { status: 'completed' })
+      .getRawOne();
+
+    const totalSales = parseFloat(totalSalesResult?.total || '0');
+
+    // Get total products count for the user
+    const totalProducts = await this.productRepository.count({
+      where: { sellerId: userId },
+    });
+
+    // Get total purchases count where user is buyer and transaction is completed
+    const totalPurchases = await this.transactionRepository.count({
+      where: {
+        buyerId: userId,
+        status: 'completed',
+      },
+    });
+
+    // Get favorite products count
+    const favoriteCount = await this.favoriteRepository.count({
+      where: { userId },
+    });
+
+    return {
+      totalSales,
+      totalProducts,
+      totalPurchases,
+      favoriteCount,
+    };
   }
 }

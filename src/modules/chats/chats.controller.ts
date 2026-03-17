@@ -13,7 +13,22 @@ import { existsSync, mkdirSync } from 'fs';
 @UseGuards(JwtAuthGuard)
 @Controller('chats')
 export class ChatsController {
-  constructor(private readonly chatsService: ChatsService) {}
+  constructor(private readonly chatsService: ChatsService) { }
+
+  @Get('find')
+  async findChat(
+    @Req() req,
+    @Query('buyerId', ParseIntPipe) buyerId: number,
+    @Query('sellerId', ParseIntPipe) sellerId: number,
+    @Query('productId', ParseIntPipe) productId: number,
+  ) {
+    const currentUserId = Number(req.user.userId);
+    if (currentUserId !== buyerId && currentUserId !== sellerId) {
+      throw new BadRequestException('You can only find chats you are part of');
+    }
+    const chatId = await this.chatsService.findChat(buyerId, sellerId, productId);
+    return { id: chatId };
+  }
 
   @Post()
   async createOrGetChat(@Req() req, @Body() dto: CreateChatDto) {

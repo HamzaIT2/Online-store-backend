@@ -6,4 +6,4 @@ import { ConversationsController } from './conversations.controller';
   providers: [ConversationsService],
   controllers: [ConversationsController]
 })
-export class ConversationsModule {}
+export class ConversationsModule { }

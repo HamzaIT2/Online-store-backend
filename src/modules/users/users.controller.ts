@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Body,
@@ -23,6 +24,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UserStatsDto } from './dto/user-stats.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
@@ -31,7 +33,7 @@ import { AdminGuard } from '../../common/guards/admin.guard';
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get()
   @ApiOperation({ summary: 'Get all users with pagination (public profiles only)' })
@@ -53,33 +55,66 @@ export class UsersController {
     return { ...profile, avatar: profile.profileImage };
   }
 
+  @Get('stats')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get current user statistics (requires authentication)' })
+  @ApiResponse({ status: 200, description: 'User statistics retrieved successfully', type: UserStatsDto })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getUserStats(@CurrentUser() user: User): Promise<UserStatsDto> {
+    return this.usersService.getUserStats(user.userId);
+  }
+
   @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  async patchProfile(
+    @CurrentUser() user: User,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    const profile = await this.usersService.update(user.userId, updateUserDto, user);
+    return { ...profile, avatar: profile.profileImage };
+  }
+
   @Put('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update current user profile' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
-  updateProfile(
+  async putProfile(
     @CurrentUser() user: User,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    return this.usersService.update(user.userId, updateUserDto, user);
+    const profile = await this.usersService.update(user.userId, updateUserDto, user);
+    return { ...profile, avatar: profile.profileImage };
   }
 
-  @Post('users/:id/avatar')
+  @Post(':id/avatar')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @UseInterceptors(FileInterceptor('avatar'))
   @ApiOperation({ summary: 'Upload and set current user avatar (profile image)' })
   @ApiResponse({ status: 201, description: 'Avatar uploaded and profile updated' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
-  uploadAvatar(
+  async uploadAvatar(
     @CurrentUser() user: User,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    if (!file) {
+      throw new BadRequestException(
+        "Avatar file is required. Send it as multipart/form-data with field name 'avatar'",
+      );
+    }
     const imagePath = `/uploads/${file.filename}`;
-    this.usersService.update(user.userId, { profileImage: imagePath } as UpdateUserDto, user);
+    await this.usersService.update(
+      user.userId,
+      { profileImage: imagePath } as UpdateUserDto,
+      user,
+    );
     return { avatar: imagePath };
   }
 

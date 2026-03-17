@@ -12,7 +12,7 @@ import {
   ParseIntPipe,
   UseInterceptors,
   UploadedFiles,
-  
+
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -20,75 +20,75 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'; import { FilesInterceptor } from '@nestjs/platform-express';
 
 
 @ApiTags('Products')
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(private readonly productsService: ProductsService) { }
 
   @Get('hero-slides')
-async getHero() {
+  async getHero() {
     return this.productsService.getHeroSlides();
   }
 
-@Get('plans/all')
+  @Get('plans/all')
   async getAllPlans() {
     return this.productsService.getPlans();
   }
   @Post('promote/:id')
   async promoteProduct(
-    @Param('id') id: string, 
+    @Param('id') id: string,
     @Body('planId') planId: number,
-   ) {
+  ) {
     return this.productsService.promoteProduct(+id, planId);
   }
 
 
   // products.controller.ts
 
-// ... (imports)
+  // ... (imports)
 
-@Post()
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth('JWT-auth')
-@UseInterceptors(FilesInterceptor('images', 10))
-@ApiOperation({ summary: 'Create a new product with images' })
-create(
-  @Body() createProductDto: CreateProductDto,
-  @CurrentUser() user: User,
-  // ✅ الحل: استقبال الملفات كمعامل (parameter) في الدالة
-  @UploadedFiles() images: Array<Express.Multer.File>,
-) {
-  console.log('Controller received DTO:', createProductDto);
-  console.log('User creating product:', user);
-  // ✅ الحل: استخدام متغير 'images' الصحيح
-  console.log('Number of images received:', images ? images.length : 0);
-  
-  // ✅ الحل: إرسال متغير 'images' الصحيح إلى الـ Service
-  return this.productsService.create(createProductDto, user, images);
-}
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @UseInterceptors(FilesInterceptor('images', 10))
+  @ApiOperation({ summary: 'Create a new product with images' })
+  create(
+    @Body() createProductDto: CreateProductDto,
+    @CurrentUser() user: User,
+    // ✅ الحل: استقبال الملفات كمعامل (parameter) في الدالة
+    @UploadedFiles() images: Array<Express.Multer.File>,
+  ) {
+    console.log('Controller received DTO:', createProductDto);
+    console.log('User creating product:', user);
+    // ✅ الحل: استخدام متغير 'images' الصحيح
+    console.log('Number of images received:', images ? images.length : 0);
 
-// ... (باقي دوال الـ Controller)
+    // ✅ الحل: إرسال متغير 'images' الصحيح إلى الـ Service
+    return this.productsService.create(createProductDto, user, images);
+  }
+
+  // ... (باقي دوال الـ Controller)
 
 
-//  @Post()
-//   @UseGuards(JwtAuthGuard)
-//   @ApiBearerAuth('JWT-auth')
-//   @UseInterceptors(FilesInterceptor('images', 10))
-//   @ApiOperation({ summary: 'Create a new product (requires authentication)' })
-//   @ApiResponse({ status: 201, description: 'Product successfully created' })
-//   @ApiResponse({ status: 401, description: 'Unauthorized' })
-//   create(@Body() createProductDto: CreateProductDto, @CurrentUser() user: User) {
-//     @UploadedFiles()images: Array<Express.Multer.File>
-//     console.log('Controller received DTO:', createProductDto);
-//   console.log('User creating product:', user);
-//   console.log('Controller received DTO:', createProductDto);
-//   console.log('User creating product:', user);
-//   console.log('Number of images received:', Image.length);
-//     return this.productsService.create(createProductDto, user,Image);
-//   }
+  //  @Post()
+  //   @UseGuards(JwtAuthGuard)
+  //   @ApiBearerAuth('JWT-auth')
+  //   @UseInterceptors(FilesInterceptor('images', 10))
+  //   @ApiOperation({ summary: 'Create a new product (requires authentication)' })
+  //   @ApiResponse({ status: 201, description: 'Product successfully created' })
+  //   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  //   create(@Body() createProductDto: CreateProductDto, @CurrentUser() user: User) {
+  //     @UploadedFiles()images: Array<Express.Multer.File>
+  //     console.log('Controller received DTO:', createProductDto);
+  //   console.log('User creating product:', user);
+  //   console.log('Controller received DTO:', createProductDto);
+  //   console.log('User creating product:', user);
+  //   console.log('Number of images received:', Image.length);
+  //     return this.productsService.create(createProductDto, user,Image);
+  //   }
 
   @Get()
   @ApiOperation({ summary: 'Get all active products with pagination' })
@@ -109,13 +109,13 @@ create(
   @ApiResponse({ status: 200, description: 'Products found' })
   search(
     @Query('q') query: string,
-    @Query('page',new DefaultValuePipe(1),ParseIntPipe) page?: number,
-    @Query('limit',new DefaultValuePipe(20),ParseIntPipe) limit?: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
     return this.productsService.searchProducts(query, page, limit);
   }
 
- @Get('filter')
+  @Get('filter')
   @ApiOperation({ summary: 'Filter products by category, location, price, and condition' })
   @ApiQuery({ name: 'categoryId', required: false, type: Number })
   @ApiQuery({ name: 'provinceId', required: false, type: Number })
@@ -133,8 +133,8 @@ create(
     @Query('minPrice') minPrice?: number,
     @Query('maxPrice') maxPrice?: number,
     @Query('condition') condition?: string,
-    @Query('page',new DefaultValuePipe(1),ParseIntPipe) page?: number,
-    @Query('limit',new DefaultValuePipe(20),ParseIntPipe) limit?: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
     return this.productsService.filterProducts(
       categoryId,
@@ -148,15 +148,15 @@ create(
     );
   }
 
- @Get('user/:userId')
+  @Get('user/:userId')
   @ApiOperation({ summary: 'Get all products by a specific user' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'User products retrieved' })
   findByUser(
     @Param('userId') userId: number,
-    @Query('page',new DefaultValuePipe(1),ParseIntPipe) page?: number,
-    @Query('limit',new DefaultValuePipe(20),ParseIntPipe) limit?: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
     return this.productsService.findByUser(userId, page, limit);
   }
@@ -172,8 +172,8 @@ create(
   }
 
 
-  
-@Patch(':id')
+
+  @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a product (only owner can update)' })
@@ -192,7 +192,7 @@ create(
   }
 
 
-@Delete(':id')
+  @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete a product (only owner can delete)' })

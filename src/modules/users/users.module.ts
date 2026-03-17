@@ -6,10 +6,13 @@ import { extname } from 'path';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
+import { Product } from '../products/entities/product.entity';
+import { Transaction } from '../transactions/entities/transaction.entity';
+import { Favorite } from '../favorites/entities/favorite.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Product, Transaction, Favorite]),
     MulterModule.register({
       storage: diskStorage({
         destination: './uploads',
@@ -27,4 +30,4 @@ import { User } from './entities/user.entity';
   providers: [UsersService],
   exports: [UsersService],
 })
-export class UsersModule {}
+export class UsersModule { }
