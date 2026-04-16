@@ -4,7 +4,7 @@ package-lock.json
 
 # Environment variables
 .env
-
+.env.example
 # Build output
 dist/
 build/
