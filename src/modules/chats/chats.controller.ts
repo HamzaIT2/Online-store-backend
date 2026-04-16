@@ -2,6 +2,7 @@ import { Controller, Post, Get, Param, Query, Body, UseGuards, ParseIntPipe, Req
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ChatsService } from './chats.service';
+import { ChatGateway } from './chat.gateway';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -13,7 +14,10 @@ import { existsSync, mkdirSync } from 'fs';
 @UseGuards(JwtAuthGuard)
 @Controller('chats')
 export class ChatsController {
-  constructor(private readonly chatsService: ChatsService) { }
+  constructor(
+    private readonly chatsService: ChatsService,
+    private readonly chatGateway: ChatGateway,
+  ) { }
 
   @Get('find')
   async findChat(
@@ -50,11 +54,60 @@ export class ChatsController {
     @Req() req,
     @Param('chatId', ParseIntPipe) chatId: number,
     @Query('limit') limitQ?: string,
+    @Query('offset') offsetQ?: string,
   ) {
     const userId = Number(req.user.userId);
     const limit = Math.min(parseInt(limitQ || '50', 10) || 50, 100);
+    const offset = parseInt(offsetQ || '0', 10) || 0;
+
     await this.chatsService.ensureMember(chatId, userId);
-    return this.chatsService.listMessages(chatId, limit);
+    return this.chatsService.listMessages(chatId, limit, offset);
+  }
+
+  @Post(':chatId/messages/upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const dir = 'uploads/chat';
+          if (!existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
+          }
+          cb(null, dir);
+        },
+        filename: (req, file, cb) => {
+          const ts = Date.now();
+          const safe = file.originalname.replace(/[^a-zA-Z0-9_.-]/g, '_');
+          cb(null, `${ts}_${safe}`);
+        },
+      }),
+    }),
+  )
+  async uploadMessageAttachment(
+    @Req() req,
+    @Param('chatId', ParseIntPipe) chatId: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const userId = Number(req.user.userId);
+    if (!file) throw new BadRequestException('No file uploaded');
+
+    await this.chatsService.ensureMember(chatId, userId);
+
+    const attachmentUrl = `/uploads/chat/${file.filename}`;
+
+    const message = await this.chatsService.sendAttachmentMessage(
+      chatId,
+      userId,
+      attachmentUrl,
+    );
+
+    this.chatGateway.broadcastNewMessageToRoom(chatId, {
+      ...message,
+      attachmentName: file.originalname,
+      type: 'attachment',
+    });
+
+    return { ...message, attachmentName: file.originalname };
   }
 
   @Post(':chatId/messages')
@@ -68,7 +121,12 @@ export class ChatsController {
     if (dto.type !== 'text' || !dto.text?.trim()) {
       throw new BadRequestException('Only text messages with non-empty text are allowed in MVP');
     }
-    return this.chatsService.sendTextMessage(chatId, userId, dto.text.trim());
+    const message = await this.chatsService.sendTextMessage(chatId, userId, dto.text.trim());
+
+    // Emit to socket room so receiver gets real-time update
+    this.chatGateway.broadcastNewMessageToRoom(chatId, message);
+
+    return message;
   }
 
   @Post(':chatId/attachments')
@@ -114,6 +172,10 @@ export class ChatsController {
 
     const url = `/uploads/chat/${file.filename}`;
     const message = await this.chatsService.sendAttachmentMessage(conversationId, userId, url);
+
+    // Emit to socket room so receiver gets real-time update
+    this.chatGateway.broadcastNewMessageToRoom(conversationId, { ...message, type: 'attachment' });
+
     return { conversationId, message };
   }
 }

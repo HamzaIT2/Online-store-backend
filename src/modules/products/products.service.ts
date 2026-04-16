@@ -1,75 +1,56 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository, Like, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { Image } from '../images/entities/image.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { User } from '../users/entities/user.entity';
-import { Review } from '../reviews/entities/review.entity';
-import { VipPlan } from '../vip-plan/entities/vip-plan.entity';
-import { create } from 'domain';
-import { MoreThan } from 'typeorm';
+import { RatingsService } from '../../ratings/ratings.service';
+import { VipService } from '../../vip/vip.service';
+
+interface ProductFilters {
+  search?: string;
+  categoryId?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  condition?: string;
+}
 
 @Injectable()
 export class ProductsService {
-  [x: string]: any;
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
-    // 1. تأكد من حقن مستودع الصور
     @InjectRepository(Image)
     private imageRepository: Repository<Image>,
-    @InjectRepository(Review)
-    private reviewRepository: Repository<Review>,
-
-
-    @InjectRepository(VipPlan) private vipPlanRepo: Repository<VipPlan>
-
-
-  ) { }
+    private ratingsService: RatingsService,
+    private vipService: VipService,
+  ) {}
 
   async getHeroSlides() {
     const now = new Date();
-    console.log('--- Checking Hero Slides ---');
-    console.log('Current Server Time:', now);
-    const slides = await this.productRepository.find({
-      where: {
-        isVip: true,
-        vipExpiryDate: MoreThan(now), // التاريخ أكبر من "الآن"
-      },
-      order: { vipExpiryDate: 'DESC' }, // الأحدث يظهر أولاً
-      relations: ['images'],
-      take: 5, // جلب 5 فقط
-    });
-    console.log('Active Slides Found:', slides.length);
-    slides.forEach(s => {
-      console.log(`ID: ${s.productId} | Title: ${s.title} | Expires: ${s.vipExpiryDate}`);
-    });
-    return slides;
+    this.logger.log('Fetching VIP hero slides...');
+    return this.vipService.getHeroSlides();
   }
   async getPlans() {
-    return await this.vipPlanRepo.find();
+    return this.vipService.getPlans();
   }
 
   async promoteProduct(productId: number, planId: number) {
-    // جلب الباقة لمعرفة عدد الأيام
-    const plan = await this.vipPlanRepo.findOne({ where: { id: planId } });
-    if (!plan) throw new Error('Plan not found');
-
-    // حساب تاريخ الانتهاء (اليوم + عدد أيام الباقة)
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + plan.days);
-
-    // تحديث المنتج
-    await this.productRepository.update(productId, {
-      isVip: true,
-      vipExpiryDate: expiryDate,
-    });
-    return { message: 'Product promoted successfully' };
+    return this.vipService.promoteProduct(productId, planId);
   }
 
-  // 2. دالة إنشاء المنتج مع حفظ الصور
+  async findAllAvailable() {
+    return await this.productRepository.find({
+      where: { status: 'available' },
+      relations: ['seller', 'category']
+    });
+  }
+
+  // 2. Create product with image saving
   async create(
     createProductDto: CreateProductDto,
     user: User,
@@ -77,7 +58,7 @@ export class ProductsService {
   ): Promise<Product> {
     const product = this.productRepository.create({
       ...createProductDto,
-      seller: user, // الربط مع كيان المستخدم مباشرة
+      seller: user, // Link with User entity directly
     });
     const newProduct = await this.productRepository.save(product);
 
@@ -96,76 +77,157 @@ export class ProductsService {
     return this.findOne(newProduct.productId);
   }
 
-  // 3. دالة جلب كل المنتجات مع تقسيم الصفحات
-  async findAll(page: number = 1, limit: number = 20) {
-    const [products, total] = await this.productRepository.findAndCount({
+  // 3. Get all products with pagination
+  async findAll(page: number = 1, limit: number = 20, filters: ProductFilters = {}) {
+
+    const queryOptions: any = {
       relations: ['seller', 'category', 'province', 'city', 'images'],
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+      where: {},
+    };
+
+    // 1. Filter by Category if provided - using direct column reference
+    if (filters.categoryId) {
+      queryOptions.where.categoryId = filters.categoryId;
+    }
+
+    // 2. Filter by Search if provided
+    if (filters.search) {
+      queryOptions.where.title = Like(`%${filters.search}%`);
+    }
+
+    // 3. Filter by Price if provided
+    if (filters.minPrice !== undefined && filters.minPrice !== null) {
+      queryOptions.where.price = MoreThanOrEqual(filters.minPrice);
+    }
+
+    if (filters.maxPrice !== undefined && filters.maxPrice !== null) {
+      queryOptions.where.price = LessThanOrEqual(filters.maxPrice);
+    }
+
+    // 4. Filter by Condition if provided
+    if (filters.condition) {
+      queryOptions.where.condition = filters.condition;
+    }
+
+    // 5. Always filter by available status
+    queryOptions.where.status = 'available';
+
+    // 6. Add ordering and pagination
+    queryOptions.order = { createdAt: 'DESC' };
+    queryOptions.skip = (page - 1) * limit;
+    queryOptions.take = limit;
+
+    const [products, total] = await this.productRepository.findAndCount(queryOptions);
+
+
     const sellerIds = Array.from(new Set(products.map(p => p.seller?.userId).filter(Boolean)));
-    const ratingsMap = await this.getRatingsByUserIds(sellerIds as number[]);
+    const ratingsMap = await this.ratingsService.getRatingsByUserIds(sellerIds as number[]);
     const data = products.map(p => ({
       ...p,
       ratingAverage: ratingsMap[p.seller?.userId ?? -1]?.avg ?? 0,
       ratingCount: ratingsMap[p.seller?.userId ?? -1]?.count ?? 0,
     }));
+
     return {
       data,
-      total,
-      page,
-      lastPage: Math.ceil(total / limit),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+      },
     };
   }
 
-  // Search products by title or description (case-insensitive)
-  async searchProducts(query: string, page: number = 1, limit: number = 20) {
-    // basic validation: if empty query return empty result rather than error
-    if (!query || (typeof query === 'string' && query.trim() === '')) {
-      return {
-        data: [],
-        total: 0,
-        page,
-        lastPage: 0,
-      };
+  // 4. Get single product with relations
+  async findOne(id: number): Promise<Product> {
+    const product = await this.productRepository.findOne({
+      where: { productId: id },
+      relations: ['seller', 'category', 'province', 'city', 'images'],
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
     }
 
+    // Increment view count
+    await this.productRepository.increment({ productId: id }, 'viewCount', 1);
+
+    return product;
+  }
+
+  // 5. Update product
+  async update(id: number, updateProductDto: UpdateProductDto, user: User): Promise<Product> {
+    const product = await this.findOne(id);
+
+    // Check if user owns the product
+    if (product.sellerId !== user.userId) {
+      throw new ForbiddenException('You can only update your own products');
+    }
+
+    // Don't allow status changes through update (use specific endpoints for that)
+    const { status, ...allowedUpdates } = updateProductDto;
+
+    await this.productRepository.update(id, allowedUpdates);
+
+    return this.findOne(id);
+  }
+
+  // 6. Delete product
+  async remove(id: number, user: User): Promise<void> {
+    const product = await this.findOne(id);
+
+    // Check if user owns the product
+    if (product.sellerId !== user.userId) {
+      throw new ForbiddenException('You can only delete your own products');
+    }
+
+    // Only allow deletion if product is not sold
+    if (product.status === 'sold') {
+      throw new ForbiddenException('Cannot delete a sold product');
+    }
+
+    await this.productRepository.delete(id);
+    this.logger.log(`Product ${id} deleted by user ${user.userId}`);
+  }
+
+  // 7. Search products
+  async searchProducts(query: string, page: number = 1, limit: number = 20) {
     const q = `%${query.toLowerCase()}%`;
 
     // Use LOWER(...) + LIKE for DB-agnostic case-insensitive matching (works on Postgres and MySQL)
     // Also align status filter with the entity default value ('available')
     const [products, total] = await this.productRepository
       .createQueryBuilder('product')
-      .where('product.status = :status', { status: 'available' })
-      .andWhere('(LOWER(product.title) LIKE :q OR LOWER(product.description) LIKE :q)', { q })
       .leftJoinAndSelect('product.seller', 'seller')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('product.province', 'province')
-      .leftJoinAndSelect('product.city', 'city')
       .leftJoinAndSelect('product.images', 'images')
+      .where(
+        '(LOWER(product.title) LIKE LOWER(:query) OR LOWER(product.description) LIKE LOWER(:query)) AND product.status = :status',
+        { query: q, status: 'available' },
+      )
       .orderBy('product.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
 
-    const sellerIds = Array.from(new Set(products.map(p => p.seller?.userId).filter(Boolean)));
-    const ratingsMap = await this.getRatingsByUserIds(sellerIds as number[]);
-    const data = products.map(p => ({
-      ...p,
-      ratingAverage: ratingsMap[p.seller?.userId ?? -1]?.avg ?? 0,
-      ratingCount: ratingsMap[p.seller?.userId ?? -1]?.count ?? 0,
-    }));
-
     return {
-      data,
-      total,
-      page,
-      lastPage: Math.ceil(total / limit),
+      data: products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+        lastPage: 0,
+      },
     };
   }
 
-  // 4. دالة فلترة المنتجات (النسخة الصحيحة والكاملة)
+  // 8. Filter products (legacy method for backward compatibility)
   async filterProducts(
     categoryId?: number,
     provinceId?: number,
@@ -173,132 +235,176 @@ export class ProductsService {
     minPrice?: number,
     maxPrice?: number,
     condition?: string,
-    page: number = 1,
-    limit: number = 20,
+    search?: string,
+    page?: number,
+    limit?: number,
   ) {
-    const query = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.seller', 'seller')
-      .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('product.province', 'province')
-      .leftJoinAndSelect('product.city', 'city')
-      .leftJoinAndSelect('product.images', 'images');
-
-    if (categoryId) {
-      query.andWhere('product.categoryId = :categoryId', { categoryId });
-    }
-    if (provinceId) {
-      query.andWhere('product.provinceId = :provinceId', { provinceId });
-    }
-    if (cityId) {
-      query.andWhere('product.cityId = :cityId', { cityId });
-    }
-    if (minPrice !== undefined) {
-      query.andWhere('product.price >= :minPrice', { minPrice });
-    }
-    if (maxPrice !== undefined) {
-      query.andWhere('product.price <= :maxPrice', { maxPrice });
-    }
-    if (condition) {
-      query.andWhere('product.condition = :condition', { condition });
-    }
-
-    const [products, total] = await query
-      .orderBy('product.createdAt', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
-
-    const sellerIds = Array.from(new Set(products.map(p => p.seller?.userId).filter(Boolean)));
-    const ratingsMap = await this.getRatingsByUserIds(sellerIds as number[]);
-    const data = products.map(p => ({
-      ...p,
-      ratingAverage: ratingsMap[p.seller?.userId ?? -1]?.avg ?? 0,
-      ratingCount: ratingsMap[p.seller?.userId ?? -1]?.count ?? 0,
-    }));
-
-    return {
-      data,
-      total,
-      page,
-      lastPage: Math.ceil(total / limit),
+    const filters: ProductFilters = {
+      categoryId,
+      search,
+      minPrice,
+      maxPrice,
+      condition,
     };
+
+    return this.findAll(page || 1, limit || 20, filters);
   }
 
-  // -- باقي الدوال تبقى كما هي --
-
-  async findOne(id: number) {
-    const product = await this.productRepository.findOne({
-      where: { productId: id },
-      relations: ['seller', 'category', 'province', 'city', 'images'],
-    });
-    if (!product) {
-      throw new NotFoundException('Product not found');
-    }
-    const ratingsMap = await this.getRatingsByUserIds([product.seller?.userId].filter(Boolean) as number[]);
-    return {
-      ...product,
-      ratingAverage: ratingsMap[product.seller?.userId ?? -1]?.avg ?? 0,
-      ratingCount: ratingsMap[product.seller?.userId ?? -1]?.count ?? 0,
-    };
-  }
-
-  private async getRatingsByUserIds(userIds: number[]) {
-    if (!userIds || userIds.length === 0) return {} as Record<number, { avg: number; count: number }>;
-    const rows = await this.reviewRepository.createQueryBuilder('review')
-      .select('review.reviewedUserId', 'reviewedUserId')
-      .addSelect('AVG(review.rating)', 'avg')
-      .addSelect('COUNT(review.reviewId)', 'count')
-      .where('review.reviewedUserId IN (:...ids)', { ids: userIds })
-      .groupBy('review.reviewedUserId')
-      .getRawMany<{ reviewedUserId: string; avg: string; count: string }>();
-
-    const map: Record<number, { avg: number; count: number }> = {};
-    for (const r of rows) {
-      const uid = Number(r.reviewedUserId);
-      map[uid] = { avg: Number(parseFloat(r.avg).toFixed(2)), count: Number(r.count) };
-    }
-    return map;
-  }
-
-  async findByUser(userId: number, page: number = 1, limit: number = 20) {
-    const [products, total] = await this.productRepository.findAndCount({
-      where: { seller: { userId: userId } }, // البحث باستخدام علاقة البائع
-      relations: ['category', 'province', 'city', 'images'],
+  // 9. Get products by user
+  async findByUser(userId: number, page?: number, limit?: number) {
+    const queryOptions: any = {
+      where: { sellerId: userId },
+      relations: ['category', 'images'],
       order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    };
+
+    if (page && limit) {
+      queryOptions.skip = (page - 1) * limit;
+      queryOptions.take = limit;
+    }
+
+    const products = await this.productRepository.find(queryOptions);
+
     return {
       data: products,
-      total,
-      page,
-      lastPage: Math.ceil(total / limit),
+      pagination: {
+        page: page || 1,
+        limit: limit || products.length,
+        total: products.length,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false,
+      },
     };
   }
 
-  async update(id: number, updateProductDto: UpdateProductDto, user: User) {
-    const product = await this.findOne(id);
-    if (product.seller.userId !== user.userId) { // التحقق باستخدام علاقة البائع
-      throw new ForbiddenException('You can only update your own products');
-    }
-    this.productRepository.merge(product, updateProductDto);
-    return await this.productRepository.save(product);
+  // 10. Get products by seller (alias for findByUser)
+  async findBySeller(sellerId: number) {
+    return await this.productRepository.find({
+      where: { sellerId },
+      relations: ['category', 'images'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
-  async remove(id: number, user: User) {
-    const product = await this.findOne(id);
-    if (product.seller.userId !== user.userId) { // التحقق باستخدام علاقة البائع
-      throw new ForbiddenException('You can only delete your own products');
+  // 11. Mark product as sold
+  async markAsSold(productId: number, buyerId: number, sellerId: number) {
+    const product = await this.findOne(productId);
+
+    // Check if product is available
+    if (product.status !== 'available') {
+      throw new ForbiddenException('Product is not available for purchase');
     }
-    await this.productRepository.remove(product);
-    return { message: 'Product deleted successfully' };
+
+    // Check if seller is the owner
+    if (product.sellerId !== sellerId) {
+      throw new ForbiddenException('Only the seller can mark a product as sold');
+    }
+
+    // Update product status
+    await this.productRepository.update(productId, {
+      status: 'sold',
+      buyerId,
+      soldAt: new Date(),
+    });
+
+    this.logger.log(`Product ${productId} marked as sold to user ${buyerId}`);
+
+    return this.findOne(productId);
   }
 
+  // 12. Update product images
+  async updateProductImages(productId: number, images: Array<Express.Multer.File>, user: User) {
+    const product = await this.findOne(productId);
 
+    // Check if user owns the product
+    if (product.sellerId !== user.userId) {
+      throw new ForbiddenException('You can only update your own product images');
+    }
 
+    // Delete existing images
+    await this.imageRepository.delete({ productId });
 
+    // Save new images
+    if (images && images.length > 0) {
+      const imageEntities = images.map((file, index) => {
+        return this.imageRepository.create({
+          url: `/uploads/${file.filename}`,
+          productId,
+          isPrimary: index === 0,
+          displayOrder: index,
+        });
+      });
+      await this.imageRepository.save(imageEntities);
+    }
 
+    this.logger.log(`Updated images for product ${productId}`);
 
+    return this.findOne(productId);
+  }
 
+  // 13. Toggle product status
+  async toggleProductStatus(productId: number, user: User) {
+    const product = await this.findOne(productId);
+
+    // Check if user owns the product
+    if (product.sellerId !== user.userId) {
+      throw new ForbiddenException('You can only change your own product status');
+    }
+
+    const newStatus = product.status === 'available' ? 'unavailable' : 'available';
+
+    await this.productRepository.update(productId, { status: newStatus });
+
+    this.logger.log(`Product ${productId} status changed to ${newStatus}`);
+
+    return this.findOne(productId);
+  }
+
+  // 14. Get VIP products
+  async getVipProducts() {
+    const now = new Date();
+    return await this.productRepository.find({
+      where: { 
+        isVip: true, 
+        status: 'available',
+        vipExpiryDate: MoreThanOrEqual(now)
+      },
+      relations: ['seller', 'category', 'images'],
+      order: { vipExpiryDate: 'DESC' },
+      take: 10,
+    });
+  }
+
+  // 15. Check VIP status
+  async checkVipStatus(productId: number) {
+    const product = await this.findOne(productId);
+
+    if (!product.isVip || !product.vipExpiryDate) {
+      return { isVip: false };
+    }
+
+    const now = new Date();
+    const isExpired = product.vipExpiryDate < now;
+
+    if (isExpired) {
+      // Auto-expire VIP status
+      await this.productRepository.update(productId, {
+        isVip: false,
+        vipExpiryDate: null,
+      });
+
+      return { isVip: false };
+    }
+
+    const daysRemaining = Math.ceil(
+      (product.vipExpiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    return {
+      isVip: true,
+      expiryDate: product.vipExpiryDate,
+      daysRemaining,
+    };
+  }
 }

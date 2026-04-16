@@ -1,70 +1,66 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Conversation } from '../conversations/entities/conversation.entity';
+import { Message } from '../messages/entities/message.entity';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class ChatsService {
-  constructor(private readonly prisma: PrismaClient) { }
+  constructor(
+    @InjectRepository(Conversation)
+    private conversationRepository: Repository<Conversation>,
+    @InjectRepository(Message)
+    private messageRepository: Repository<Message>,
+  ) { }
 
   async findChat(buyerId: number, sellerId: number, productId: number) {
-    const existing = await this.prisma.conversations.findFirst({
+    const existing = await this.conversationRepository.findOne({
       where: {
-        buyer_id: buyerId,
-        seller_id: sellerId,
-        product_id: productId,
+        buyerId,
+        sellerId,
+        productId,
       },
-      select: { conversation_id: true },
     });
-    return existing?.conversation_id;
+    return existing?.conversationId;
   }
 
   async createOrGetChat(buyerId: number, sellerId: number, productId?: number) {
-    const existing = await this.prisma.conversations.findFirst({
+    const existing = await this.conversationRepository.findOne({
       where: {
-        buyer_id: buyerId,
-        seller_id: sellerId,
-        ...(productId ? { product_id: productId } : {}),
+        buyerId,
+        sellerId,
+        ...(productId ? { productId } : {}),
       },
-      select: { conversation_id: true },
     });
-    if (existing) return existing.conversation_id;
+    if (existing) return existing.conversationId;
 
     if (productId == null) throw new BadRequestException('productId is required');
 
-    const chat = await this.prisma.conversations.create({
-      data: {
-        buyer_id: buyerId,
-        seller_id: sellerId,
-        product_id: productId,
-      },
-      select: { conversation_id: true },
+    const chat = this.conversationRepository.create({
+      buyerId,
+      sellerId,
+      productId,
     });
-    return chat.conversation_id;
+    const savedChat = await this.conversationRepository.save(chat);
+    return savedChat.conversationId;
   }
 
   async listChats(userId: number) {
-    const conversations = await this.prisma.conversations.findMany({
-      where: { OR: [{ buyer_id: userId }, { seller_id: userId }] },
-      orderBy: { last_message_at: 'desc' },
-      include: {
-        users_conversations_buyer_idTousers: { select: { id: true, username: true, fullName: true, avatar: true } },
-        users_conversations_seller_idTousers: { select: { id: true, username: true, fullName: true, avatar: true } },
-        messages: {
-          take: 1,
-          orderBy: { created_at: 'desc' },
-          select: { message_text: true },
-        },
-      },
+    const conversations = await this.conversationRepository.find({
+      where: [{ buyerId: userId }, { sellerId: userId }],
+      order: { lastMessageAt: 'DESC' },
+      relations: ['buyer', 'seller', 'messages'],
     });
 
     return {
       items: conversations.map((c) => {
-        const other =
-          c.buyer_id === userId ? c.users_conversations_seller_idTousers : c.users_conversations_buyer_idTousers;
+        const other = c.buyerId === userId ? c.seller : c.buyer;
         const last = c.messages[0];
         return {
-          id: c.conversation_id,
+          id: c.conversationId,
           otherUserName: other?.username ?? '',
-          lastMessageSnippet: last?.message_text ?? '',
+          lastMessageSnippet: last?.messageText?.startsWith('/uploads/') ? undefined : last?.messageText ?? '',
           unreadCount: 0,
         };
       }),
@@ -72,57 +68,105 @@ export class ChatsService {
   }
 
   async ensureMember(chatId: number, userId: number) {
-    const c = await this.prisma.conversations.findUnique({
-      where: { conversation_id: chatId },
-      select: { buyer_id: true, seller_id: true },
+    const c = await this.conversationRepository.findOne({
+      where: { conversationId: chatId },
+      select: { buyerId: true, sellerId: true },
     });
     if (!c) throw new NotFoundException('Chat not found');
-    if (c.buyer_id !== userId && c.seller_id !== userId) {
+    if (c.buyerId !== userId && c.sellerId !== userId) {
       throw new ForbiddenException('Not a member of this chat');
     }
   }
 
-  async listMessages(chatId: number, limit: number) {
-    const msgs = await this.prisma.message.findMany({
-      where: { conversation_id: chatId },
-      orderBy: { created_at: 'asc' },
+  async listMessages(chatId: number, limit: number, offset?: number) {
+    const msgs = await this.messageRepository.find({
+      where: { conversationId: chatId },
+      order: { createdAt: 'DESC' }, // Get newest first for better pagination
       take: limit,
+      skip: offset || 0,
     });
-    const items = msgs.map((m) => ({
-      id: m.message_id,
-      senderId: m.sender_id,
-      text: m.message_text?.startsWith('/uploads/') ? undefined : m.message_text,
-      attachmentUrl: m.message_text?.startsWith('/uploads/') ? m.message_text : undefined,
-      createdAt: m.created_at,
+
+    // Reverse to show oldest first
+    const reversedMsgs = msgs.reverse();
+
+    const items = reversedMsgs.map((m) => ({
+      id: m.messageId,
+      senderId: m.senderId,
+      text: m.messageText?.startsWith('/uploads/') ? undefined : m.messageText,
+      attachmentUrl: m.messageText?.startsWith('/uploads/') ? m.messageText : undefined,
+      isRead: m.isRead,
+      createdAt: m.createdAt,
     }));
     return { items };
   }
 
   async sendTextMessage(chatId: number, senderId: number, text: string) {
-    const [msg] = await this.prisma.$transaction([
-      this.prisma.message.create({ data: { conversation_id: chatId, sender_id: senderId, message_text: text } }),
-      this.prisma.conversations.update({ where: { conversation_id: chatId }, data: { last_message_at: new Date() } }),
-    ]);
+    const msg = this.messageRepository.create({
+      conversationId: chatId,
+      senderId,
+      messageText: text,
+    });
+
+    await this.messageRepository.save(msg);
+
+    await this.conversationRepository.update(
+      { conversationId: chatId },
+      { lastMessageAt: new Date() }
+    );
+
     return {
-      id: msg.message_id,
-      senderId: msg.sender_id,
-      text: msg.message_text,
+      id: msg.messageId,
+      senderId: msg.senderId,
+      text: msg.messageText,
       attachmentUrl: undefined,
-      createdAt: msg.created_at,
+      createdAt: msg.createdAt,
     };
   }
 
   async sendAttachmentMessage(chatId: number, senderId: number, fileUrl: string) {
-    const [msg] = await this.prisma.$transaction([
-      this.prisma.message.create({ data: { conversation_id: chatId, sender_id: senderId, message_text: fileUrl } }),
-      this.prisma.conversations.update({ where: { conversation_id: chatId }, data: { last_message_at: new Date() } }),
-    ]);
+    const msg = this.messageRepository.create({
+      conversationId: chatId,
+      senderId,
+      messageText: fileUrl,
+    });
+
+    await this.messageRepository.save(msg);
+
+    await this.conversationRepository.update(
+      { conversationId: chatId },
+      { lastMessageAt: new Date() }
+    );
+
     return {
-      id: msg.message_id,
-      senderId: msg.sender_id,
+      id: msg.messageId,
+      senderId: msg.senderId,
       text: undefined,
-      attachmentUrl: msg.message_text,
-      createdAt: msg.created_at,
+      attachmentUrl: msg.messageText,
+      createdAt: msg.createdAt,
     };
+  }
+
+  async markMessageAsRead(messageId: number, userId: number) {
+    const message = await this.messageRepository.findOne({
+      where: { messageId },
+      relations: ['conversation'],
+    });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    // Verify user is member of this conversation
+    await this.ensureMember(message.conversationId, userId);
+
+    // Mark as read if user is not the sender
+    if (message.senderId !== userId) {
+      await this.messageRepository.update(
+        { messageId },
+        { isRead: true }
+      );
+    }
+
+    return true;
   }
 }

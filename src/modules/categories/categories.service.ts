@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Category } from './entities/category.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -10,10 +10,10 @@ export class CategoriesService {
   constructor(
     @InjectRepository(Category)
     private categoryRepository: Repository<Category>,
-  ) {}
+  ) { }
 
   async create(createCategoryDto: CreateCategoryDto) {
-    
+
     // check if category already exists
     const existing = await this.categoryRepository.findOne({ where: { name: createCategoryDto.name } });
     if (existing) throw new BadRequestException('Category with this name already exists');
@@ -34,12 +34,29 @@ export class CategoriesService {
   }
 
   async findAll() {
-    // Get all main categories (no parent) with their subCategories
-    return await this.categoryRepository.find({
-      where: { parentId: null },
+    // Only fetch root categories (parent_id IS NULL) with their subCategories
+    const mainCategories = await this.categoryRepository.find({
+      where: { parentId: IsNull() },
       relations: ['subCategories'],
       order: { name: 'ASC' },
     });
+
+    //console.log("RAW MAIN CATEGORIES FROM DB:", JSON.stringify(mainCategories, null, 2));
+
+    // Format for frontend consumption with exact field names
+    const formattedCategories = mainCategories.map(category => ({
+      id: category.categoryId,
+      name: category.name,       // Must be EXACTLY 'name'
+      name_ar: category.nameAr,  // Must be EXACTLY 'name_ar'
+      subs: category.subCategories ? category.subCategories.map(sub => ({
+        id: sub.categoryId,
+        name: sub.name,
+        name_ar: sub.nameAr
+      })) : []
+    }));
+
+    //console.log("BACKEND CATEGORIES EXPORT:", formattedCategories);
+    return formattedCategories;
   }
 
   async findOne(id: number) {

@@ -21,10 +21,10 @@ async function bootstrap() {
     origin: true
     // origin: ['http://localhost:5173','http://127.0.0.1:3000'
     //   ,'http://127.0.0.1:65036', 'https://aldawaarr.vercel.app','http://localhost:3000','http://localhost:65036','http://127.0.0.1:60808',],
-   , methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With','Cache-Control','X-HTTP-Method-Override','X-CSRF-Token'],
+    , methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'X-HTTP-Method-Override', 'X-CSRF-Token'],
     credentials: true,
-    
+
   });
 
   //'https://aldawaarr.vercel.app'
@@ -70,7 +70,7 @@ async function bootstrap() {
 
   const server = app.getHttpAdapter().getInstance();
   const endpoints = listEndpoints(server)
-  
+
 
   console.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
   console.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);

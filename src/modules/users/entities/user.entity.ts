@@ -11,6 +11,7 @@ import {
 import { Exclude } from 'class-transformer';
 import { Province } from '../../provinces/entities/province.entity';
 import { City } from '../../provinces/entities/city.entity';
+import { Transaction } from '../../transactions/entities/transaction.entity';
 
 @Entity('users')
 export class User {
@@ -106,8 +107,14 @@ export class User {
   @ManyToOne(() => Province, { nullable: true })
   @JoinColumn({ name: 'province_id' })
   province: Province;
-  // @OneToMany(()=>Image,(images)=>images)
+
   @ManyToOne(() => City, { nullable: true })
   @JoinColumn({ name: 'city_id' })
   city: City;
+
+  @OneToMany(() => Transaction, transaction => transaction.buyer)
+  purchases: Transaction[];
+
+  @OneToMany(() => Transaction, transaction => transaction.seller)
+  sales: Transaction[];
 }

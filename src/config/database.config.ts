@@ -5,21 +5,16 @@ export const getDatabaseConfig = (
   configService: ConfigService,
 ): TypeOrmModuleOptions => ({
   type: 'postgres',
-  host: configService.get<string>('DB_HOST','localhost'),
-  port: configService.get<number>('DB_PORT',5432),
-  username: configService.get<string>('DB_USERNAME','postgres'),
-  password: configService.get<string>('DB_PASSWORD','root'),
-  database: configService.get<string>('DB_DATABASE','iraq-marketplace'),
+  host: configService.get<string>('DB_HOST'),
+  port: configService.get<number>('DB_PORT'),
+  username: configService.get<string>('DB_USERNAME'),
+  password: configService.get<string>('DB_PASSWORD'),
+  database: configService.get<string>('DB_DATABASE'),
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: configService.get<string>('NODE_ENV','NODE_ENV') === 'development',
-  logging: configService.get<string>('NODE_ENV','NODE_ENV') === 'development',
-  ssl: false ,
+  synchronize: configService.get<string>('NODE_ENV') === 'development',
+  logging: configService.get<string>('NODE_ENV') === 'development',
+  ssl: configService.get<string>('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
   extra: {
-    max: 10,
+    max: configService.get<number>('DB_CONNECTION_POOL_MAX', 10),
   },
 });
-//development
-
-
-//dpg-d3v7j6re5dus73a6i67g-a.frankfurt-postgres.render.com
-//9RaUdujath6QWcWwvs9KiwdLd7V7HuGP

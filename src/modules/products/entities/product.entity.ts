@@ -13,6 +13,7 @@ import { Category } from '../../categories/entities/category.entity';
 import { Province } from '../../provinces/entities/province.entity';
 import { City } from '../../provinces/entities/city.entity';
 import { Image } from '../../images/entities/image.entity';
+import { Transaction } from '../../transactions/entities/transaction.entity';
 
 @Entity('products')
 export class Product {
@@ -46,15 +47,23 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   address: string;
 
-  @Column({ name: 'is_negotiable', default: true })
+  @Column({ default: true })
   isNegotiable: boolean;
 
   @Column({ length: 20, default: 'available' })
   status: string;
 
-  @Column({ name: 'view_count', default: 0 })
-  viewCount: number;
+  @Column({ nullable: true })
+  buyerId: number;
 
+  @Column({ type: 'timestamp', nullable: true })
+  soldAt: Date;
+
+  @Column({ nullable: true })
+  purchaseId: number;
+
+  @Column({ default: 0 })
+  viewCount: number;
 
   @Column({ default: false })
   isVip: boolean;
@@ -62,9 +71,9 @@ export class Product {
   @Column({ type: 'timestamp', nullable: true })
   vipExpiryDate: Date;
 
-  @Column({name:'old_price',type:'decimal' , precision:10 , scale:0,nullable:true})
+  @Column({ name: 'old_price', type: 'decimal', precision: 10, scale: 0, nullable: true })
   oldPrice: number;
-  @Column({ name:'offer_expires_at', type: 'timestamp', nullable: true })
+  @Column({ name: 'offer_expires_at', type: 'timestamp', nullable: true })
   offerExpiresAt: Date;
 
   @CreateDateColumn({ name: 'created_at' })
@@ -77,6 +86,10 @@ export class Product {
   @ManyToOne(() => User)
   @JoinColumn({ name: 'seller_id' })
   seller: User;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'buyer_id' })
+  buyer: User;
 
   @ManyToOne(() => Category)
   @JoinColumn({ name: 'category_id' })
@@ -92,4 +105,7 @@ export class Product {
 
   @OneToMany(() => Image, (image) => image.product)
   images: Image[];
+
+  @ManyToOne(() => Transaction, { nullable: true })
+  transaction: Transaction;
 }

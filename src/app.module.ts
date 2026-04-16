@@ -4,23 +4,22 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { getDatabaseConfig } from './config/database.config';
 
 // Import all feature modules
+import { RatingsModule } from './ratings/ratings.module';
+import { VipModule } from './vip/vip.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProductsModule } from './modules/products/products.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProvincesModule } from './modules/provinces/provinces.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { MessagesModule } from './modules/messages/messages.module';
-import { TransactionsModule } from './modules/transactions/transactions.module';
+import { TransactionsModule } from './transactions/transactions.module';
 import { ChatsModule } from './modules/chats/chats.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ImagesModule } from './modules/images/images.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { MailerModule } from '@nestjs-modules/mailer';
-import {VipPlan} from './modules/vip-plan/entities/vip-plan.entity';
-import { Product } from './modules/products/entities/product.entity';
-import { ProductsService } from './modules/products/products.service';
-import { ProductsController } from './modules/products/products.controller';
 @Module({
   imports: [
     // Configuration
@@ -34,26 +33,27 @@ import { ProductsController } from './modules/products/products.controller';
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: getDatabaseConfig,
-      
+
     }),
 
     MailerModule.forRoot({
-      transport:{
-        host:'smtp.gmail.com',
-        port:587,
-        secure:false,
-        auth:{
-          user:'hamza.hitham.it22@stu.uoninevah.edu.iq',
-          pass:'iihf ctbo zkim niiz'
+      transport: {
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
         },
       },
-      defaults:{
-        from:'"No Reply" <hamza.hitham.it22@stu.uoninevah.edu.iq>'
+      defaults: {
+        from: process.env.SMTP_FROM || '"No Reply" <noreply@iraq-marketplace.com>',
       },
-      
     }),
 
     // Feature Modules
+    RatingsModule,
+    VipModule,
     UsersModule,
     ProductsModule,
     CategoriesModule,
@@ -66,8 +66,8 @@ import { ProductsController } from './modules/products/products.controller';
     FavoritesModule,
     ImagesModule,
     AuthModule,
-    TypeOrmModule.forFeature([Product,VipPlan]),
+    OrdersModule,
   ],
 
 })
-export class AppModule {}
+export class AppModule { }

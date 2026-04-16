@@ -19,7 +19,7 @@ export class AuthController {
   async register(@Body() registerDto: RegisterDto) {
     return await this.authService.register(registerDto);
   }
-  
+
   @Post('login')
   @ApiOperation({ summary: 'Login user' })
   @ApiResponse({ status: 200, description: 'User successfully logged in' })
@@ -43,7 +43,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Password reset successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    console.log('Body received:', resetPasswordDto);
+    //console.log('Body received:', resetPasswordDto);
     return await this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.password);
   }
 
@@ -59,7 +59,7 @@ export class AuthController {
     if (!email) {
       throw new BadRequestException('Email is required');
     }
-    
+
     // استدعاء الدالة التي أنشأناها قبل قليل
     return this.authService.resendVerificationCode(email);
   }

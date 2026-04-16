@@ -24,7 +24,7 @@ import { AdminGuard } from '../../common/guards/admin.guard';
 @ApiTags('Categories')
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+  constructor(private readonly categoriesService: CategoriesService) { }
 
   @Post()
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -41,8 +41,10 @@ export class CategoriesController {
   @Get()
   @ApiOperation({ summary: 'Get all main categories with their subcategories' })
   @ApiResponse({ status: 200, description: 'Categories retrieved successfully' })
-  findAll() {
-    return this.categoriesService.findAll();
+  async findAll() {
+    const result = await this.categoriesService.findAll();
+    //console.log("BACKEND RESPONSE TO FRONTEND:", result);
+    return result;
   }
 
   @Get('tree')

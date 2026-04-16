@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, InternalServerErrorException, NotFoundException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Repository } from 'typeorm';
@@ -6,16 +6,18 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { MailerService } from '@nestjs-modules/mailer';
+import { EmailService } from '../../email/email.service';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
-    private mailerService: MailerService,
+    private emailService: EmailService,
   ) { }
 
   // ----------------------------------------------------------------
@@ -110,16 +112,9 @@ export class AuthService {
 
     // إرسال الإيميل
     try {
-      await this.mailerService.sendMail({
-        to: savedUser.email,
-        subject: 'تفعيل حسابك',
-        html: `
-          <h3>Welcome!</h3>
-          <p>Your Verification Code is: <b style="font-size: 20px;">${verificationCode}</b></p>
-        `
-      });
+      await this.emailService.sendVerificationEmail(savedUser.email, verificationCode);
     } catch (e) {
-      console.error("Email sending failed:", e);
+      this.logger.error('Email sending failed:', e);
     }
 
     const { passwordHash, ...result } = savedUser;
@@ -195,18 +190,9 @@ export class AuthService {
     await this.userRepository.save(user);
 
     try {
-      await this.mailerService.sendMail({
-        to: user.email,
-        subject: 'New Verification Code',
-        html: `
-            <h3>Hello!</h3>
-            <p>Your new verification code is: <b style="font-size: 20px;">${verificationCode}</b></p>
-            <p>This code will expire in 15 minutes.</p>
-          `,
-      });
-      console.log(`✅ Resent Code to ${email}`);
+      await this.emailService.resendVerificationEmail(user.email, verificationCode);
     } catch (e) {
-      console.error("⚠️ Failed to send email", e);
+      this.logger.error('Failed to resend verification email:', e);
     }
 
     return {
@@ -228,11 +214,7 @@ export class AuthService {
 
     const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;
 
-    await this.mailerService.sendMail({
-      to: user.email,
-      subject: 'إعادة تعيين كلمة المرور',
-      html: `<p>Click here to reset: <a href="${resetLink}">Reset Password</a></p>`,
-    });
+    await this.emailService.sendPasswordResetEmail(user.email, resetToken);
 
     return { message: 'Password reset email sent successfully' };
   }
