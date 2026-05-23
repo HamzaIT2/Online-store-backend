@@ -6,6 +6,7 @@ import {
   Logger,
   Req,
   Body,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { OrdersService } from './orders.service';
@@ -42,7 +43,7 @@ export class OrdersController {
     }
 
     console.error('No user ID found in user object:', user);
-    throw new Error('User ID not found in authenticated user object');
+    throw new InternalServerErrorException('User ID not found in authenticated user object');
   }
 
   @Get('my-orders')
