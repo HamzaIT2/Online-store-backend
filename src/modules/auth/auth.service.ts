@@ -8,6 +8,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { EmailService } from '../../email/email.service';
 import * as crypto from 'crypto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
     private userRepository: Repository<User>,
     private jwtService: JwtService,
     private emailService: EmailService,
+    private configService: ConfigService,
   ) { }
 
   // ----------------------------------------------------------------
@@ -212,7 +214,7 @@ export class AuthService {
     user.resetPasswordExpiry = new Date(Date.now() + 3600 * 1000);
     await this.userRepository.save(user);
 
-    const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;
+    const resetLink = `${this.configService.get<string>('FRONTEND_URL')}/reset-password?token=${resetToken}`;
 
     await this.emailService.sendPasswordResetEmail(user.email, resetToken);
 
