@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Product } from '../modules/products/entities/product.entity';
@@ -24,18 +24,18 @@ export class TransactionsService {
       this.logger.log('Found product:', product);
 
       if (!product) {
-        throw new Error('Product not found');
+        throw new NotFoundException('Product not found');
       }
 
       if (product.status !== 'available') {
-        throw new Error('Product is not available for purchase');
+        throw new BadRequestException('Product is not available for purchase');
       }
 
       this.logger.log('Product sellerId:', product.sellerId);
       this.logger.log('Request buyerId:', buyerId);
 
       if (product.sellerId === buyerId) {
-        throw new Error('Cannot purchase your own product');
+        throw new ForbiddenException('Cannot purchase your own product');
       }
 
       // Create transaction
