@@ -8,13 +8,13 @@ export class WsJwtGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     try {
       const client: Socket = context.switchToWs().getClient();
       const token = this.extractTokenFromSocket(client);
-      
+
       if (!token) {
         throw new UnauthorizedException('No token provided');
       }
@@ -24,7 +24,7 @@ export class WsJwtGuard implements CanActivate {
       });
 
       // Add user info to socket for later use
-      (client as any).userId = payload.userId;
+      (client as any).userId = payload.sub;
       (client as any).user = payload;
 
       return true;
@@ -34,10 +34,10 @@ export class WsJwtGuard implements CanActivate {
   }
 
   private extractTokenFromSocket(client: Socket): string | null {
-    const token = client.handshake.auth.token || 
-                  client.handshake.headers.authorization?.replace('Bearer ', '') ||
-                  client.handshake.query.token;
-    
+    const token = client.handshake.auth.token ||
+      client.handshake.headers.authorization?.replace('Bearer ', '') ||
+      client.handshake.query.token;
+
     return token as string || null;
   }
 }
