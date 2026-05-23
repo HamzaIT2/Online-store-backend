@@ -13,21 +13,36 @@ async function bootstrap() {
   // Get config service
   const configService = app.get(ConfigService);
 
+  // Enable CORS with secure origin validation
+  const allowedOrigins = configService.get<string>('CORS_ALLOWED_ORIGINS');
+  const isDevelopment = configService.get<string>('NODE_ENV') !== 'production';
 
+  // Parse allowed origins from environment variable or use development defaults
+  const corsOrigins = allowedOrigins
+    ? allowedOrigins.split(',').map(origin => origin.trim())
+    : isDevelopment
+      ? [
+          'http://localhost:5173',
+          'http://localhost:3000',
+          'http://127.0.0.1:5173',
+          'http://127.0.0.1:3000',
+          'http://127.0.0.1:65036',
+          'http://localhost:65036',
+          'http://127.0.0.1:60808',
+        ]
+      : [];
 
+  // In production, require explicit CORS configuration
+  if (!isDevelopment && (!allowedOrigins || corsOrigins.length === 0)) {
+    throw new Error('CORS_ALLOWED_ORIGINS environment variable must be set in production');
+  }
 
-  // Enable CORS
   app.enableCors({
-    origin: true
-    // origin: ['http://localhost:5173','http://127.0.0.1:3000'
-    //   ,'http://127.0.0.1:65036', 'https://aldawaarr.vercel.app','http://localhost:3000','http://localhost:65036','http://127.0.0.1:60808',],
-    , methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    origin: corsOrigins,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'X-HTTP-Method-Override', 'X-CSRF-Token'],
     credentials: true,
-
   });
-
-  //'https://aldawaarr.vercel.app'
 
   // Global validation pipe
   app.useGlobalPipes(
