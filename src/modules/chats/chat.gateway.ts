@@ -31,7 +31,7 @@ interface SendMessagePayload extends SendMessageDto {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || '*',
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true,
   },
   namespace: '/chat',
@@ -54,54 +54,30 @@ export class ChatGateway
 
   async handleConnection(client: Socket) {
     try {
-      // Check if userId is provided directly in auth (for simpler auth)
-      const directUserId = client.handshake.auth.userId;
-
-      if (directUserId) {
-        // Direct userId approach - simpler auth
-        const userId = Number(directUserId);
-
-        const authenticatedClient = client as AuthenticatedSocket;
-        authenticatedClient.userId = userId;
-        authenticatedClient.user = { userId };
-
-        // Track user connections
-        if (!this.connectedUsers.has(userId)) {
-          this.connectedUsers.set(userId, new Set());
-        }
-        this.connectedUsers.get(userId)!.add(client.id);
-
-        this.logger.log(`Client connected: ${client.id} (User: ${userId})`);
-
-        // Join user to their personal room for notifications
-        await client.join(`user:${userId}`);
-
-      } else {
-        // JWT token approach
-        const token = this.extractTokenFromSocket(client);
-        if (!token) {
-          throw new UnauthorizedException('No token or userId provided');
-        }
-
-        const payload = this.jwtService.verify(token, {
-          secret: this.configService.get<string>('JWT_SECRET'),
-        });
-
-        const authenticatedClient = client as AuthenticatedSocket;
-        authenticatedClient.userId = payload.userId;
-        authenticatedClient.user = payload;
-
-        // Track user connections
-        if (!this.connectedUsers.has(payload.userId)) {
-          this.connectedUsers.set(payload.userId, new Set());
-        }
-        this.connectedUsers.get(payload.userId)!.add(client.id);
-
-        this.logger.log(`Client connected: ${client.id} (User: ${payload.userId})`);
-
-        // Join user to their personal room for notifications
-        await client.join(`user:${payload.userId}`);
+      // JWT token verification is required for all connections
+      const token = this.extractTokenFromSocket(client);
+      if (!token) {
+        throw new UnauthorizedException('No token provided');
       }
+
+      const payload = this.jwtService.verify(token, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
+
+      const authenticatedClient = client as AuthenticatedSocket;
+      authenticatedClient.userId = payload.sub;
+      authenticatedClient.user = payload;
+
+      // Track user connections
+      if (!this.connectedUsers.has(payload.sub)) {
+        this.connectedUsers.set(payload.sub, new Set());
+      }
+      this.connectedUsers.get(payload.sub)!.add(client.id);
+
+      this.logger.log(`Client connected: ${client.id} (User: ${payload.sub})`);
+
+      // Join user to their personal room for notifications
+      await client.join(`user:${payload.sub}`);
 
     } catch (error) {
       this.logger.error(`Authentication failed for client ${client.id}:`, error.message);
