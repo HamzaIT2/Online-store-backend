@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(
+    private readonly mailerService: MailerService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async sendVerificationEmail(email: string, verificationCode: string): Promise<void> {
     try {
@@ -28,7 +32,7 @@ export class EmailService {
 
   async sendPasswordResetEmail(email: string, resetToken: string): Promise<void> {
     try {
-      const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+      const resetLink = `${this.configService.get<string>('FRONTEND_URL')}/reset-password?token=${resetToken}`;
       
       await this.mailerService.sendMail({
         to: email,
