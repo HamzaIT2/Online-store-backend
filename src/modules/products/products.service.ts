@@ -28,7 +28,7 @@ export class ProductsService {
     private imageRepository: Repository<Image>,
     private ratingsService: RatingsService,
     private vipService: VipService,
-  ) {}
+  ) { }
 
   async getHeroSlides() {
     const now = new Date();
@@ -365,8 +365,8 @@ export class ProductsService {
   async getVipProducts() {
     const now = new Date();
     return await this.productRepository.find({
-      where: { 
-        isVip: true, 
+      where: {
+        isVip: true,
         status: 'available',
         vipExpiryDate: MoreThanOrEqual(now)
       },
