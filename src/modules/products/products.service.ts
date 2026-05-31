@@ -78,69 +78,73 @@ export class ProductsService {
   }
 
   // 3. Get all products with pagination
-  async findAll(page: number = 1, limit: number = 20, filters: ProductFilters = {}) {
 
+  async findAll(page: number = 1, limit: number = 20, filters: any = {}) {
     const queryOptions: any = {
-      relations: ['seller', 'category', 'province', 'city', 'images'],
+      relations: ['seller', 'category', 'images'], // جلب الجداول المرتبطة
       where: {},
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     };
 
-    // 1. Filter by Category if provided - using direct column reference
-    if (filters.categoryId) {
-      queryOptions.where.categoryId = filters.categoryId;
+    // 1. تنظيف المعرف الخاص بالقسم
+    let activeCategoryId: any = null;
+    if (filters.categoryId && String(filters.categoryId) !== 'undefined' && String(filters.categoryId) !== 'null') {
+      const categoryStr = String(filters.categoryId).trim();
+      activeCategoryId = !isNaN(Number(categoryStr)) ? Number(categoryStr) : categoryStr;
     }
 
-    // 2. Filter by Search if provided
-    if (filters.search) {
-      queryOptions.where.title = Like(`%${filters.search}%`);
+    // 2. تنظيف نص البحث
+    const cleanSearch = (filters.search && String(filters.search) !== 'undefined' && String(filters.search) !== 'null' && String(filters.search).trim() !== '')
+      ? decodeURIComponent(String(filters.search)).trim()
+      : null;
+
+    // 3. بناء الشروط بذكاء
+    if (cleanSearch) {
+      queryOptions.where = [
+        { title: Like(`%${cleanSearch}%`), status: 'available' },
+        { description: Like(`%${cleanSearch}%`), status: 'available' }
+      ];
+    } else if (activeCategoryId) {
+      // 🎯 التصحيح الأول: نستخدم categoryId مباشرة بدلاً من كائن العلاقة الذي كان يسبب انهيار الاستعلام
+      queryOptions.where = {
+        categoryId: activeCategoryId, // التصحيح هنا
+        status: 'available'
+      };
+    } else {
+      queryOptions.where = { status: 'available' };
     }
 
-    // 3. Filter by Price if provided
-    if (filters.minPrice !== undefined && filters.minPrice !== null) {
-      queryOptions.where.price = MoreThanOrEqual(filters.minPrice);
+    this.logger.log(`Executing Query with Where: ${JSON.stringify(queryOptions.where)}`);
+
+    try {
+      const [products, total] = await this.productRepository.findAndCount(queryOptions);
+
+      return {
+        data: products,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error in findAll: ${error.message}`);
+      // 🎯 التصحيح الثاني: إضافة relations هنا لكي لا تختفي الصور إذا حدث أي خطأ مستقبلاً
+      const [fallbackProducts, fallbackTotal] = await this.productRepository.findAndCount({
+        where: { status: 'available' },
+        relations: ['seller', 'category', 'images'], // التصحيح هنا
+        take: limit,
+        skip: (page - 1) * limit,
+      });
+      return {
+        data: fallbackProducts,
+        pagination: { page, limit, total: fallbackTotal, totalPages: Math.ceil(fallbackTotal / limit) }
+      };
     }
-
-    if (filters.maxPrice !== undefined && filters.maxPrice !== null) {
-      queryOptions.where.price = LessThanOrEqual(filters.maxPrice);
-    }
-
-    // 4. Filter by Condition if provided
-    if (filters.condition) {
-      queryOptions.where.condition = filters.condition;
-    }
-
-    // 5. Always filter by available status
-    queryOptions.where.status = 'available';
-
-    // 6. Add ordering and pagination
-    queryOptions.order = { createdAt: 'DESC' };
-    queryOptions.skip = (page - 1) * limit;
-    queryOptions.take = limit;
-
-    const [products, total] = await this.productRepository.findAndCount(queryOptions);
-
-
-    const sellerIds = Array.from(new Set(products.map(p => p.seller?.userId).filter(Boolean)));
-    const ratingsMap = await this.ratingsService.getRatingsByUserIds(sellerIds as number[]);
-    const data = products.map(p => ({
-      ...p,
-      ratingAverage: ratingsMap[p.seller?.userId ?? -1]?.avg ?? 0,
-      ratingCount: ratingsMap[p.seller?.userId ?? -1]?.count ?? 0,
-    }));
-
-    return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1,
-      },
-    };
   }
-
   // 4. Get single product with relations
   async findOne(id: number): Promise<Product> {
     const product = await this.productRepository.findOne({
