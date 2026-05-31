@@ -48,12 +48,6 @@ export class ProductsController {
   ) {
     return this.productsService.promoteProduct(+id, planId);
   }
-
-
-  // products.controller.ts
-
-  // ... (imports)
-
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
@@ -73,27 +67,6 @@ export class ProductsController {
     // ✅ الحل: إرسال متغير 'images' الصحيح إلى الـ Service
     return this.productsService.create(createProductDto, user, images);
   }
-
-  // ... (باقي دوال الـ Controller)
-
-
-  //  @Post()
-  //   @UseGuards(JwtAuthGuard)
-  //   @ApiBearerAuth('JWT-auth')
-  //   @UseInterceptors(FilesInterceptor('images', 10))
-  //   @ApiOperation({ summary: 'Create a new product (requires authentication)' })
-  //   @ApiResponse({ status: 201, description: 'Product successfully created' })
-  //   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  //   create(@Body() createProductDto: CreateProductDto, @CurrentUser() user: User) {
-  //     @UploadedFiles()images: Array<Express.Multer.File>
-  //     console.log('Controller received DTO:', createProductDto);
-  //   console.log('User creating product:', user);
-  //   console.log('Controller received DTO:', createProductDto);
-  //   console.log('User creating product:', user);
-  //   console.log('Number of images received:', Image.length);
-  //     return this.productsService.create(createProductDto, user,Image);
-  //   }
-
   @Get()
   @ApiOperation({ summary: 'Get all active products with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -105,38 +78,37 @@ export class ProductsController {
   findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number = 20,
-    @Query('categoryId', new ParseIntPipe({ optional: true })) categoryId?: number,
+    @Query('categoryId') categoryId?: any,
     @Query('search') search?: string,
+    @Query('q') q?: string,
     @Query('minPrice', new ParseIntPipe({ optional: true })) minPrice?: number,
     @Query('maxPrice', new ParseIntPipe({ optional: true })) maxPrice?: number,
     @Query('condition') condition?: string,
   ) {
-    //console.log('CONTROLLER - Received query params:', { page, limit, categoryId, search, minPrice, maxPrice, condition });
-
-    const filters = { categoryId, search, minPrice, maxPrice, condition };
+    console.log('CONTROLLER - Received query params:', { page, limit, categoryId, search, minPrice, maxPrice, condition });
+    const activeSearch = search || q;
+    const filters = { categoryId, search: activeSearch, minPrice, maxPrice, condition };
     //console.log('CONTROLLER - Extracted filters:', filters);
-    //console.log('CONTROLLER - CategoryId filter:', categoryId);
+    console.log('CONTROLLER - CategoryId filter:', categoryId);
 
     const result = this.productsService.findAll(page, limit, filters);
     //console.log('CONTROLLER - Sending to service with filters:', filters);
 
     return result;
   }
-
   @Get('search')
   @ApiOperation({ summary: 'Search products by title or description' })
-  @ApiQuery({ name: 'q', required: true, type: String, description: 'Search query' })
+  @ApiQuery({ name: 'search', required: true, type: String, description: 'Search query' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Products found' })
   search(
-    @Query('q') query: string,
+    @Query('search') query: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
     return this.productsService.searchProducts(query, page, limit);
   }
-
   @Get('filter')
   @ApiOperation({ summary: 'Filter products by category, location, price, and condition' })
   @ApiQuery({ name: 'categoryId', required: false, type: Number })
@@ -164,7 +136,6 @@ export class ProductsController {
       limit,
     );
   }
-
   @Get('user/:userId')
   @ApiOperation({ summary: 'Get all products by a specific user' })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -177,9 +148,6 @@ export class ProductsController {
   ) {
     return this.productsService.findByUser(userId, page, limit);
   }
-
-
-
   @Get(':id')
   @ApiOperation({ summary: 'Get a single product by ID' })
   @ApiResponse({ status: 200, description: 'Product found' })
@@ -187,9 +155,6 @@ export class ProductsController {
   findOne(@Param('id') id: number) {
     return this.productsService.findOne(id);
   }
-
-
-
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
@@ -207,8 +172,6 @@ export class ProductsController {
     this.logger.log('User:', user);
     return this.productsService.update(id, updateProductDto, user);
   }
-
-
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
