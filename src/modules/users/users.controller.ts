@@ -125,6 +125,16 @@ export class UsersController {
   findByUsername(@Param('username') username: string) {
     return this.usersService.findByUsername(username);
   }
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, AdminGuard) // 🛡️ حماية صارمة: التوكن + صلاحية أدمن فقط!
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get all users with private data (Admin Only)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
+  findAllForAdmin(@Query('page') page?: number, @Query('limit') limit?: number) {
+    return this.usersService.findAllForAdmin(page, limit);
+  }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID (public profile)' })
@@ -158,7 +168,10 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - can only deactivate own account' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  deactivate(@Param('id') id: number, @CurrentUser() user: User) {
+  deactivate(
+    @Param('id', ParseIntPipe) id: number, // 🔥 أضفنا ParseIntPipe هنا لتحويل النص إلى رقم
+    @CurrentUser() user: User
+  ) {
     return this.usersService.deactivate(id, user);
   }
 }
