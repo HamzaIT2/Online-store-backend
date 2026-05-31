@@ -16,8 +16,10 @@ interface CategoryData {
   nameAr: string;
   description?: string;
   icon?: string;
+  subcategories?: { name: string; nameAr: string; description?: string }[]; 
 }
 
+// 📍 1. مصفوفة المحافظات والمدن الكاملة (بدون أي نقص)
 const provincesData: ProvinceData[] = [
   {
     name: 'Baghdad',
@@ -177,58 +179,87 @@ const provincesData: ProvinceData[] = [
       { name: 'Samarra', nameAr: 'سامراء' },
       { name: 'Tikrit', nameAr: 'تكريت' },
       { name: 'Baiji', nameAr: 'بيجي' },
+      { name: 'Al-Shirqat', nameAr: 'الشرقاط' },
     ],
   },
 ];
 
+// 🏷️ 2. مصفوفة الأقسام الرئيسية مع إضافة الأقسام الفرعية (Subcategories) بداخلها
 const categoriesData: CategoryData[] = [
   {
     name: 'Electronics',
     nameAr: 'إلكترونيات',
     description: 'Electronic devices and accessories',
     icon: 'electronics',
+    subcategories: [
+      { name: 'Mobile Phones', nameAr: 'هواتف وملحقات' },
+      { name: 'Laptops & Computers', nameAr: 'لابتوبات وكمبيوترات' },
+      { name: 'Accessories', nameAr: 'إكسسوارات شاشات وأجهزة' },
+      { name: 'Home Appliances', nameAr: 'اجهزة منزلية' }
+    ]
   },
   {
     name: 'Fashion',
     nameAr: 'أزياء',
     description: 'Clothing, shoes and accessories',
     icon: 'fashion',
+    subcategories: [
+      { name: 'Men', nameAr: 'رجالي' },
+      { name: 'Women', nameAr: 'نسائي' },
+      { name: 'Shoes & Bags', nameAr: 'أحذية وحقائب' },
+      { name: 'Accessories', nameAr: 'إكسسوارات' }
+    ]
   },
   {
-    name: 'Real Estate',
-    nameAr: 'عقارات',
-    description: 'Properties for sale and rent',
-    icon: 'real-estate',
+    name: 'Beauty & Health',
+    nameAr: 'جمال وصحة',
+    description: 'Beauty and health products',
+    icon: 'beauty',
+    subcategories: [
+      { name: 'Cosmetics', nameAr: 'مستحضرات تجميل' },
+      { name: 'Perfumes', nameAr: 'عطور' },
+      { name: 'Beauty Devices', nameAr: 'أجهزة عناية' }
+ 
+    ]
   },
+
   {
     name: 'Vehicles',
     nameAr: 'مركبات',
     description: 'Cars, motorcycles and parts',
     icon: 'vehicles',
+    subcategories: [
+      { name: 'Cars', nameAr: 'سيارات مستعملة' },
+      { name: 'Motorcycles', nameAr: 'دراجات نارية' },
+      { name: 'Spare Parts', nameAr: 'قطع غيار ' },
+      { name: 'Accessories', nameAr: 'اكسسوارات' }
+    ]
   },
   {
-    name: 'Home & Garden',
-    nameAr: 'المنزل والحديقة',
+    name: 'Furniture & Home',
+    nameAr: 'أثاث وديكور',
     description: 'Furniture and home improvement',
     icon: 'home',
+    subcategories: [
+      { name: 'Bedroom', nameAr: 'غرف نوم' },
+      { name: 'Living Room', nameAr: 'غرف جلوس' },
+      { name: 'Office', nameAr: 'مكاتب وكراسي' },
+      { name: 'Decor', nameAr: 'ديكورات منزلية' }
+    ]
   },
+
+
   {
-    name: 'Jobs',
-    nameAr: 'وظائف',
-    description: 'Employment opportunities',
-    icon: 'jobs',
-  },
-  {
-    name: 'Services',
-    nameAr: 'خدمات',
-    description: 'Professional and personal services',
-    icon: 'services',
-  },
-  {
-    name: 'Sports & Hobbies',
-    nameAr: 'رياضة وهوايات',
+    name: 'Tools & Hobbies',
+    nameAr: 'أدوات وهوايات',
     description: 'Sports equipment and hobby items',
     icon: 'sports',
+    subcategories: [
+      { name: 'Sports', nameAr: 'رياضة ولياقة' },
+      { name: 'Musical Instruments', nameAr: 'أدوات موسيقية' },
+      { name: 'Games & Gifts', nameAr: 'ألعاب وهدايا' },
+      { name: 'Books & Stationery', nameAr: 'كتب ومستلزمات دراسية' }
+    ]
   },
 ];
 
@@ -239,13 +270,12 @@ async function seed() {
   try {
     console.log('🌱 Starting database seeding...');
 
-    // Seed Provinces and Cities
+    // 📍 زراعة المحافظات والمدن
     console.log('📍 Seeding provinces and cities...');
     const provinceRepository = dataSource.getRepository(Province);
     const cityRepository = dataSource.getRepository(City);
 
     for (const provinceData of provincesData) {
-      // Check if province already exists
       let province = await provinceRepository.findOne({
         where: [{ name: provinceData.name }, { nameAr: provinceData.nameAr }],
       });
@@ -261,17 +291,18 @@ async function seed() {
         console.log(`⏭️  Province already exists: ${provinceData.name} (${provinceData.nameAr})`);
       }
 
-      // Seed cities for this province
+      // زراعة المدن المرتبطة بالمحافظة الحالية
       for (const cityData of provinceData.cities) {
         const existingCity = await cityRepository.findOne({
           where: [{ name: cityData.name }, { nameAr: cityData.nameAr }],
         });
 
         if (!existingCity) {
+          const targetProvinceId = province.provinceId || province.provinceId; // حماية لاسم الحقل حسب الـ Entity عندك
           const city = cityRepository.create({
             name: cityData.name,
             nameAr: cityData.nameAr,
-            provinceId: province.provinceId,
+            provinceId: targetProvinceId,
           });
           await cityRepository.save(city);
           console.log(`  ✅ Created city: ${cityData.name} (${cityData.nameAr})`);
@@ -281,17 +312,17 @@ async function seed() {
       }
     }
 
-    // Seed Categories
-    console.log('🏷️  Seeding categories...');
+    // 🏷️ زراعة الأقسام الرئيسية والأقسام الفرعية التابعة لها
+    console.log('🏷️  Seeding categories and subcategories...');
     const categoryRepository = dataSource.getRepository(Category);
 
     for (const categoryData of categoriesData) {
-      const existingCategory = await categoryRepository.findOne({
+      let existingCategory = await categoryRepository.findOne({
         where: [{ name: categoryData.name }, { nameAr: categoryData.nameAr }],
       });
 
       if (!existingCategory) {
-        const category = categoryRepository.create({
+        existingCategory = categoryRepository.create({
           name: categoryData.name,
           nameAr: categoryData.nameAr,
           description: categoryData.description,
@@ -299,10 +330,35 @@ async function seed() {
           isActive: true,
           displayOrder: 0,
         });
-        await categoryRepository.save(category);
-        console.log(`✅ Created category: ${categoryData.name} (${categoryData.nameAr})`);
+        existingCategory = await categoryRepository.save(existingCategory);
+        console.log(`✅ Created Main Category: ${categoryData.name} (${categoryData.nameAr})`);
       } else {
-        console.log(`⏭️  Category already exists: ${categoryData.name} (${categoryData.nameAr})`);
+        console.log(`⏭️  Main Category already exists: ${categoryData.name} (${categoryData.nameAr})`);
+      }
+
+      // زراعة الأقسام الفرعية وربطها بالقسم الرئيسي الحالي عن طريق الـ parentId
+      if (categoryData.subcategories && categoryData.subcategories.length > 0) {
+        for (const subData of categoryData.subcategories) {
+          const existingSub = await categoryRepository.findOne({
+            where: [{ name: subData.name }, { nameAr: subData.nameAr }],
+          });
+
+          if (!existingSub) {
+            const targetCategoryId = existingCategory.categoryId || existingCategory.categoryId; // حماية لاسم الحقل
+            const sub = categoryRepository.create({
+              name: subData.name,
+              nameAr: subData.nameAr,
+              description: subData.description,
+              parentId: targetCategoryId, // حقل الربط الأساسي بالقسم الرئيسي
+              isActive: true,
+              displayOrder: 0,
+            });
+            await categoryRepository.save(sub);
+            console.log(`  ✅ Created Subcategory: ${subData.name} (${subData.nameAr})`);
+          } else {
+            console.log(`  ⏭️  Subcategory already exists: ${subData.name} (${subData.nameAr})`);
+          }
+        }
       }
     }
 
@@ -315,7 +371,6 @@ async function seed() {
   }
 }
 
-// Run the seed function
 seed()
   .then(() => {
     console.log('🌱 Seeding process finished');
