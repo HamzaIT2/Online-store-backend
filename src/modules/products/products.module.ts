@@ -16,8 +16,6 @@ import { VipService } from '../../vip/vip.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Product, Image, Review, VipPlan]),
-
-    // إعداد Multer
     MulterModule.register({
       storage: diskStorage({
         destination: './uploads',
@@ -39,22 +37,3 @@ import { VipService } from '../../vip/vip.service';
 })
 export class ProductsModule { }
 
-
-
-
-
-
-
-// import { Module } from '@nestjs/common';
-// import { TypeOrmModule } from '@nestjs/typeorm';
-// import { ProductsService } from './products.service';
-// import { ProductsController } from './products.controller';
-// import { Product } from './entities/product.entity';
-
-// @Module({
-//   imports: [TypeOrmModule.forFeature([Product])],
-//   controllers: [ProductsController],
-//   providers: [ProductsService],
-//   exports: [ProductsService],
-// })
-// export class ProductsModule {}
