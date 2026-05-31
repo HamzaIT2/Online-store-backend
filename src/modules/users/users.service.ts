@@ -110,6 +110,35 @@ export class UsersService {
 
     return user;
   }
+  async findAllForAdmin(page: number = 1, limit: number = 20) {
+    const [users, total] = await this.userRepository.findAndCount({
+      where: { isActive: true },
+      relations: ['province', 'city'],
+      select: {
+        userId: true,
+        username: true,
+        fullName: true,
+        fullNameAr: true,
+        email: true,        // 🔥 الآن الإيميل متاح للأدمن بأمان
+        phoneNumber: true,  // 🔥 ورقم الهاتف أيضاً إذا أردت عرضه مستقبلاً
+        profileImage: true,
+        isVerified: true,
+        ratingAverage: true,
+        totalSales: true,
+        createdAt: true,
+      },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      users,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit),
+    };
+  }
 
   async getProfile(userId: number) {
     // Get full profile including sensitive data (for the user themselves)
@@ -171,7 +200,7 @@ export class UsersService {
 
   async deactivate(id: number, currentUser: User) {
     // Users can only deactivate their own account
-    if (currentUser.userId !== id) {
+    if (currentUser.role !== 'admin' && currentUser.userId !== Number(id)) {
       throw new ForbiddenException('You can only deactivate your own account');
     }
 
