@@ -35,7 +35,7 @@
     "class-validator": "^0.14.0",
     "cors": "^2.8.6",
     "express-list-endpoints": "^7.1.1",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^8.0.9",
     "passport": "^0.6.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
