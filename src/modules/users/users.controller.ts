@@ -92,16 +92,13 @@ export class UsersController {
     const profile = await this.usersService.update(user.userId, updateUserDto, user);
     return { ...profile, avatar: profile.profileImage };
   }
-
   @Post(':id/avatar')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
   @UseInterceptors(FileInterceptor('avatar'))
-  @ApiOperation({ summary: 'Upload and set current user avatar (profile image)' })
+  @ApiOperation({ summary: 'Upload and set user avatar by ID' })
   @ApiResponse({ status: 201, description: 'Avatar uploaded and profile updated' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   async uploadAvatar(
-    @CurrentUser() user: User,
+    @Param('id', ParseIntPipe) id: number,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) {
@@ -110,10 +107,12 @@ export class UsersController {
       );
     }
     const imagePath = `/uploads/${file.filename}`;
+    
+
     await this.usersService.update(
-      user.userId,
+      id,
       { profileImage: imagePath } as UpdateUserDto,
-      user,
+      { userId: id, role: 'user' } as any
     );
     return { avatar: imagePath };
   }
