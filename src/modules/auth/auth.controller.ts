@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, BadRequestException, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -6,18 +6,24 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
   @Post('register')
+  @UseInterceptors(FileInterceptor('avatar'))
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User successfully registered' })
   @ApiResponse({ status: 409, description: 'Email or phone already exists' })
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() registerDto: RegisterDto) {
-    return await this.authService.register(registerDto);
+  async register(
+    @Body() registerDto: RegisterDto,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    console.log('REGISTER FILE : ', file)
+    return await this.authService.register(registerDto, file);
   }
 
   @Post('login')
@@ -25,7 +31,9 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User successfully logged in' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
+  async login(
+    @Body() loginDto: LoginDto
+  ) {
     return await this.authService.login(loginDto);
   }
   @Public()
@@ -33,7 +41,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Forgot password' })
   @ApiResponse({ status: 200, description: 'Password reset email sent successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+  async forgotPassword(
+    @Body() forgotPasswordDto: ForgotPasswordDto
+  ) {
 
     return await this.authService.forgotPassword(forgotPasswordDto.email);
   }
@@ -42,7 +52,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Reset password' })
   @ApiResponse({ status: 200, description: 'Password reset successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+  async resetPassword(
+    @Body() resetPasswordDto: ResetPasswordDto
+  ) {
     //console.log('Body received:', resetPasswordDto);
     return await this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.password);
   }
@@ -54,7 +66,9 @@ export class AuthController {
 
 
   @Post('resend-code')
-  async resendCode(@Body('email') email: string) {
+  async resendCode(
+    @Body('email') email: string
+  ) {
     // التحقق من وصول الإيميل
     if (!email) {
       throw new BadRequestException('Email is required');
