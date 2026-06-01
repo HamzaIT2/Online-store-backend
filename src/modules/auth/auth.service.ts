@@ -80,7 +80,7 @@ export class AuthService {
   // ----------------------------------------------------------------
   // 3. Register
   // ----------------------------------------------------------------
-  async register(registerDto: RegisterDto) {
+  async register(registerDto: RegisterDto, file: Express.Multer.File) {
     const existingUser = await this.userRepository.findOne({
       where: [
         { email: registerDto.email },
@@ -94,7 +94,7 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-
+    
     const newUser = this.userRepository.create({
       username: registerDto.username,
       email: registerDto.email,
@@ -108,6 +108,7 @@ export class AuthService {
       userType: registerDto.userType || 'both',
       provinceId: registerDto.province_id,
       cityId: registerDto.city_id,
+      profileImage: file ? `/uploads/${file.fieldname}` : null 
     });
 
     const savedUser = await this.userRepository.save(newUser);
@@ -123,9 +124,13 @@ export class AuthService {
 
     return {
       user: result,
-      message: 'Registration successful. Please check your email for OTP.'
+      message: 'Registration successful. Please check your email for OTP.',
+      
+      
     };
+    
   }
+  
 
   // ----------------------------------------------------------------
   // 4. Verify Email
