@@ -48,10 +48,13 @@ export class CategoriesService {
       id: category.categoryId,
       name: category.name,       // Must be EXACTLY 'name'
       name_ar: category.nameAr,  // Must be EXACTLY 'name_ar'
+      icon: category.icon,
       subs: category.subCategories ? category.subCategories.map(sub => ({
         id: sub.categoryId,
         name: sub.name,
-        name_ar: sub.nameAr
+        name_ar: sub.nameAr,
+        icon: sub.icon,
+        
       })) : []
     }));
 
