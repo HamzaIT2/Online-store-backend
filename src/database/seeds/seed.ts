@@ -16,10 +16,10 @@ interface CategoryData {
   nameAr: string;
   description?: string;
   icon?: string;
-  subcategories?: { name: string; nameAr: string; description?: string }[]; 
+  subcategories?: { name: string; nameAr: string; description?: string; icon?: string }[]; // 🎯 تم إضافة icon هنا للأقسام الفرعية
 }
 
-// 📍 1. مصفوفة المحافظات والمدن الكاملة (بدون أي نقص)
+// 📍 1. مصفوفة المحافظات والمدن الكاملة
 const provincesData: ProvinceData[] = [
   {
     name: 'Baghdad',
@@ -184,81 +184,77 @@ const provincesData: ProvinceData[] = [
   },
 ];
 
-// 🏷️ 2. مصفوفة الأقسام الرئيسية مع إضافة الأقسام الفرعية (Subcategories) بداخلها
+// 🏷️ 2. مصفوفة الأقسام الرئيسية والفرعية مع ربط الصور الذكي بالسيرفر
 const categoriesData: CategoryData[] = [
   {
     name: 'Electronics',
     nameAr: 'إلكترونيات',
     description: 'Electronic devices and accessories',
-    icon: 'electronics',
+    icon: '/uploads/categories/electronics.jpg',
     subcategories: [
-      { name: 'Mobile Phones', nameAr: 'هواتف وملحقات' },
-      { name: 'Laptops & Computers', nameAr: 'لابتوبات وكمبيوترات' },
-      { name: 'Accessories', nameAr: 'إكسسوارات شاشات وأجهزة' },
-      { name: 'Home Appliances', nameAr: 'اجهزة منزلية' }
+      { name: 'Mobile Phones', nameAr: 'هواتف وملحقات', icon: '/uploads/categories/phone.jpg' },
+      { name: 'Laptops & Computers', nameAr: 'لابتوبات وكمبيوترات', icon: '/uploads/categories/labtop.jpg' },
+      { name: 'Accessories', nameAr: 'إكسسوارات شاشات وأجهزة', icon: '/uploads/categories/mobility.jpg' },
+      { name: 'Home Appliances', nameAr: 'اجهزة منزلية', icon: '/uploads/categories/dvicehome.jpg' }
     ]
   },
   {
     name: 'Fashion',
     nameAr: 'أزياء',
     description: 'Clothing, shoes and accessories',
-    icon: 'fashion',
+    icon: '/uploads/categories/fashion.jpg',
     subcategories: [
-      { name: 'Men', nameAr: 'رجالي' },
-      { name: 'Women', nameAr: 'نسائي' },
-      { name: 'Shoes & Bags', nameAr: 'أحذية وحقائب' },
-      { name: 'Accessories', nameAr: 'إكسسوارات' }
+      { name: 'Men', nameAr: 'رجالي', icon: '/uploads/categories/man.jpg' },
+      { name: 'Women', nameAr: 'نسائي', icon: '/uploads/categories/weman.jpg' },
+      { name: 'Shoes & Bags', nameAr: 'أحذية وحقائب', icon: '/uploads/categories/xy.jpg' },
+      { name: 'Accessories', nameAr: 'إكسسوارات', icon: '/uploads/categories/mobility.jpg' }
     ]
   },
   {
     name: 'Beauty & Health',
     nameAr: 'جمال وصحة',
     description: 'Beauty and health products',
-    icon: 'beauty',
+    icon: '/uploads/categories/beauty.jpg',
     subcategories: [
-      { name: 'Cosmetics', nameAr: 'مستحضرات تجميل' },
-      { name: 'Perfumes', nameAr: 'عطور' },
-      { name: 'Beauty Devices', nameAr: 'أجهزة عناية' }
- 
+      { name: 'Cosmetics', nameAr: 'مستحضرات تجميل', icon: '/uploads/categories/tjmel.jpg' },
+      { name: 'Perfumes', nameAr: 'عطور', icon: '/uploads/categories/ator.jpg' },
+      { name: 'Beauty Devices', nameAr: 'أجهزة عناية', icon: '/uploads/categories/dvicepersonal.jpg' }
     ]
   },
-
   {
     name: 'Vehicles',
     nameAr: 'مركبات',
     description: 'Cars, motorcycles and parts',
-    icon: 'vehicles',
+    icon: '/uploads/categories/vehicles.jpg',
     subcategories: [
-      { name: 'Cars', nameAr: 'سيارات مستعملة' },
-      { name: 'Motorcycles', nameAr: 'دراجات نارية' },
-      { name: 'Spare Parts', nameAr: 'قطع غيار ' },
-      { name: 'Accessories', nameAr: 'اكسسوارات' }
+      { name: 'Cars', nameAr: 'سيارات مستعملة', icon: '/uploads/categories/camry.jpg' },
+      { name: 'Motorcycles', nameAr: 'دراجات نارية', icon: '/uploads/categories/bicke.jpg' },
+      { name: 'Spare Parts', nameAr: 'قطع غيار ', icon: '/uploads/categories/quta.jpg' },
+      { name: 'Accessories', nameAr: 'اكسسوارات', icon: '/uploads/categories/mobility.jpg' }
     ]
   },
   {
     name: 'Furniture & Home',
     nameAr: 'أثاث وديكور',
     description: 'Furniture and home improvement',
-    icon: 'home',
+    icon: '/uploads/categories/home.jpg',
     subcategories: [
-      { name: 'Bedroom', nameAr: 'غرف نوم' },
-      { name: 'Living Room', nameAr: 'غرف جلوس' },
-      { name: 'Office', nameAr: 'مكاتب وكراسي' },
-      { name: 'Decor', nameAr: 'ديكورات منزلية' }
+      { name: 'Bedroom', nameAr: 'غرف نوم', icon: '/uploads/categories/room.jpg' },
+      { name: 'Living Room', nameAr: 'غرف جلوس', icon: '/uploads/categories/room1.jpg' },
+      { name: 'Office', nameAr: 'مكاتب وكراسي', icon: '/uploads/categories/mm.jpg' },
+      { name: 'Decor', nameAr: 'ديكورات منزلية', icon: '/uploads/categories/mmm.jpg' }
     ]
   },
-
-
   {
     name: 'Tools & Hobbies',
     nameAr: 'أدوات وهوايات',
     description: 'Sports equipment and hobby items',
-    icon: 'sports',
+    icon: '/uploads/categories/sports.jpg',
     subcategories: [
-      { name: 'Sports', nameAr: 'رياضة ولياقة' },
-      { name: 'Musical Instruments', nameAr: 'أدوات موسيقية' },
-      { name: 'Games & Gifts', nameAr: 'ألعاب وهدايا' },
-      { name: 'Books & Stationery', nameAr: 'كتب ومستلزمات دراسية' }
+      { name: 'Sports', nameAr: 'رياضة ولياقة', icon: '/uploads/categories/jem.jpg' },
+      { name: 'Musical Instruments', nameAr: 'أدوات موسيقية', icon: '/uploads/categories/music.jpg' },
+      { name: 'Games & Gifts', nameAr: 'ألعاب وهدايا', icon: '/uploads/categories/game.jpg' },
+      { name: 'Books & Stationery', nameAr: 'كتب ومستلزمات دراسية', icon: '/uploads/categories/book.jpg' }
     ]
   },
 ];
@@ -291,14 +287,13 @@ async function seed() {
         console.log(`⏭️  Province already exists: ${provinceData.name} (${provinceData.nameAr})`);
       }
 
-      // زراعة المدن المرتبطة بالمحافظة الحالية
       for (const cityData of provinceData.cities) {
         const existingCity = await cityRepository.findOne({
           where: [{ name: cityData.name }, { nameAr: cityData.nameAr }],
         });
 
         if (!existingCity) {
-          const targetProvinceId = province.provinceId || province.provinceId; // حماية لاسم الحقل حسب الـ Entity عندك
+          const targetProvinceId = province.provinceId; 
           const city = cityRepository.create({
             name: cityData.name,
             nameAr: cityData.nameAr,
@@ -336,7 +331,6 @@ async function seed() {
         console.log(`⏭️  Main Category already exists: ${categoryData.name} (${categoryData.nameAr})`);
       }
 
-      // زراعة الأقسام الفرعية وربطها بالقسم الرئيسي الحالي عن طريق الـ parentId
       if (categoryData.subcategories && categoryData.subcategories.length > 0) {
         for (const subData of categoryData.subcategories) {
           const existingSub = await categoryRepository.findOne({
@@ -344,12 +338,13 @@ async function seed() {
           });
 
           if (!existingSub) {
-            const targetCategoryId = existingCategory.categoryId || existingCategory.categoryId; // حماية لاسم الحقل
+            const targetCategoryId = existingCategory.categoryId; 
             const sub = categoryRepository.create({
               name: subData.name,
               nameAr: subData.nameAr,
               description: subData.description,
-              parentId: targetCategoryId, // حقل الربط الأساسي بالقسم الرئيسي
+              icon: subData.icon, // 🎯 تم التعديل لحفظ مسار أيقونة القسم الفرعي في قاعدة البيانات
+              parentId: targetCategoryId, 
               isActive: true,
               displayOrder: 0,
             });
