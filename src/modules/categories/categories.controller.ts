@@ -7,6 +7,8 @@ import {
   Param,
   Delete,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,7 +21,9 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
-
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Categories')
 @Controller('categories')
@@ -29,12 +33,36 @@ export class CategoriesController {
   @Post()
   @UseGuards(JwtAuthGuard, AdminGuard)
   @ApiBearerAuth('JWT-auth')
+  @UseInterceptors(FileInterceptor('image', {
+    storage: diskStorage({
+      destination: './uploads/categories', // المجلد الذي ستحفظ فيه صور الأقسام
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `cat-${uniqueSuffix}${extname(file.originalname)}`);
+      },
+    }),
+  }))
   @ApiOperation({ summary: 'Create a new category (requires authentication)' })
   @ApiResponse({ status: 201, description: 'Category successfully created' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Parent category not found' })
-  create(@Body() createCategoryDto: CreateCategoryDto) {
+  create(
+    @Body() createCategoryDto: any, // استخدمنا any لأن البيانات ستأتي كـ FormData
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    // إذا تم رفع صورة، نقوم بتخزين مسارها في حقل icon الموجود في الداتا بيز مسبقاً
+    if (file) {
+      createCategoryDto.icon = `/uploads/categories/${file.filename}`;
+    }
+
+    // الـ FormData ترسل الأرقام كنصوص، لذلك نعيد تحويل parentId إلى رقم إذا كان قسماً فرعياً
+    if (createCategoryDto.parentId && createCategoryDto.parentId !== 'null') {
+      createCategoryDto.parentId = Number(createCategoryDto.parentId);
+    } else {
+      createCategoryDto.parentId = null;
+    }
+
     return this.categoriesService.create(createCategoryDto);
   }
 
